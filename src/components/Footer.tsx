@@ -1,65 +1,41 @@
-import NewsletterForm from "./NewsletterForm";
-
 const Footer = () => {
-  const helpLinks = [{ label: "CONTACT", href: "mailto:hello@vesper.com" }];
-
-  const socialLinks = [
-    { label: "INSTAGRAM", href: "https://instagram.com" },
-    { label: "TWITTER", href: "https://twitter.com" },
-    { label: "PINTEREST", href: "https://pinterest.com" },
-  ];
-
+  const year = new Date().getFullYear();
   return (
-    <footer className="bg-accent-red text-foreground">
-      <div className="px-5 md:px-20 py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-x-12 lg:gap-x-16 items-start">
-          {/* Logo Section */}
-          <div className="md:col-span-1">
-            <div className="font-serif text-3xl md:text-4xl font-bold italic">
-              VESPER
-            </div>
+    <footer className="bg-background border-t border-border">
+      <div className="px-5 md:px-12 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+          <div className="md:col-span-2">
+            <div className="display text-3xl md:text-4xl font-medium">QONNECT</div>
+            <p className="tagline mt-4 max-w-md">
+              The hoodie as a living business card.
+            </p>
           </div>
 
-          {/* Connect */}
-          <div className="md:col-span-1">
-            <h3 className="footer-header">CONNECT</h3>
+          <div>
+            <h3 className="footer-header">Editions</h3>
             <nav className="flex flex-col gap-2">
-              {helpLinks.map((link) => (
-                <a key={link.label} href={link.href} className="footer-link">
-                  {link.label}
-                </a>
-              ))}
+              <a href="/#editions" className="footer-link">Tech</a>
+              <a href="/#editions" className="footer-link">Medicine</a>
+              <a href="/#editions" className="footer-link">Business</a>
             </nav>
           </div>
 
-          {/* Social */}
-          <div className="md:col-span-1">
-            <h3 className="footer-header">FOLLOW</h3>
+          <div>
+            <h3 className="footer-header">Connect</h3>
             <nav className="flex flex-col gap-2">
-              {socialLinks.map((link) => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="footer-link"
-                >
-                  {link.label}
-                </a>
-              ))}
+              <a href="mailto:hello@qonnect.com" className="footer-link">Contact</a>
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="footer-link">Instagram</a>
+              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="footer-link">Twitter</a>
             </nav>
-          </div>
-
-          {/* Newsletter */}
-          <div id="newsletter" className="md:col-span-1">
-            <NewsletterForm inputClassName="min-w-72" />
           </div>
         </div>
 
-        {/* Copyright */}
-        <div className="mt-12 pt-6 border-t border-foreground/20">
-          <p className="text-sm text-center md:text-left uppercase">
-            © 2025 VESPER. ALL RIGHTS RESERVED.
+        <div className="mt-14 pt-6 border-t border-border flex flex-col md:flex-row justify-between gap-2">
+          <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+            © {year} QONNECT. All rights reserved.
+          </p>
+          <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+            Wear your world.
           </p>
         </div>
       </div>

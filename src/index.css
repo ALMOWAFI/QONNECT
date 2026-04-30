@@ -1,90 +1,82 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Lora:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Perspective Blog Design System - Warm & Vibrant */
-/* Variables use --color-* naming + OKLCH format for Lovable theme compatibility */
+/* QONNECT Brand System v1.0
+   Void Black / Charcoal / Sand
+   Cormorant Garamond (display) + Inter (body)
+*/
 
 @layer base {
   :root {
-    /* Base Colors - Warm Cream Theme */
-    --color-background: oklch(93.2% 0.032 68.4); /* #fce5cf */
-    --color-foreground: oklch(0% 0 0); /* Pure black */
+    /* Brand palette */
+    --color-background: oklch(8% 0 0);          /* #0A0A0A Void Black */
+    --color-foreground: oklch(92% 0.013 85);    /* #E8E0C8 Sand */
 
-    /* Card Colors */
-    --color-card: oklch(93.2% 0.032 68.4);
-    --color-card-foreground: oklch(0% 0 0);
+    --color-card: oklch(11% 0 0);
+    --color-card-foreground: oklch(92% 0.013 85);
 
-    /* Primary Action Colors */
-    --color-primary: oklch(83.5% 0.097 338.5); /* #f7b0e0 - Lavender */
-    --color-primary-foreground: oklch(0% 0 0);
-    --color-primary-hover: oklch(68.5% 0.18 50); /* #fc8500 - Orange */
+    --color-primary: oklch(92% 0.013 85);       /* Sand */
+    --color-primary-foreground: oklch(8% 0 0);
+    --color-primary-hover: oklch(85% 0.013 85);
 
-    /* Secondary Actions */
-    --color-secondary: oklch(40.5% 0.12 310); /* #7C3F8D - Deep Purple */
-    --color-secondary-foreground: oklch(100% 0 0);
-    --color-secondary-hover: oklch(34% 0.1 310); /* #6B3678 - Purple Hover */
+    --color-secondary: oklch(28% 0 0);          /* #3A3A3A Charcoal */
+    --color-secondary-foreground: oklch(92% 0.013 85);
+    --color-secondary-hover: oklch(34% 0 0);
 
-    /* Accent Colors */
-    --color-accent: oklch(93.2% 0.032 68.4);
-    --color-accent-foreground: oklch(0% 0 0);
-    --accent-red: oklch(59% 0.22 30); /* #ff5400 */
-    --accent-pink: oklch(72% 0.16 345); /* #ff75ba */
+    --color-accent: oklch(28% 0 0);
+    --color-accent-foreground: oklch(92% 0.013 85);
+    --accent-red: oklch(28% 0 0);
+    --accent-pink: oklch(28% 0 0);
 
-    /* Muted */
-    --color-muted: oklch(88% 0.02 68);
-    --color-muted-foreground: oklch(50% 0.02 68);
+    --color-muted: oklch(18% 0 0);
+    --color-muted-foreground: oklch(65% 0.006 85);
 
-    /* Popover */
-    --color-popover: oklch(93.2% 0.032 68.4);
-    --color-popover-foreground: oklch(0% 0 0);
+    --color-popover: oklch(11% 0 0);
+    --color-popover-foreground: oklch(92% 0.013 85);
 
-    /* Destructive */
-    --color-destructive: oklch(64.6% 0.196 12.214);
+    --color-destructive: oklch(60% 0.2 25);
     --color-destructive-foreground: oklch(100% 0 0);
 
-    /* Vibrant Card Backgrounds */
-    --card-yellow: oklch(83% 0.15 85); /* #F6C744 */
-    --card-purple: oklch(78% 0.1 295); /* #C8A8E9 */
-    --card-magenta: oklch(60% 0.2 335); /* #D946A0 */
-    --card-blue: oklch(83% 0.1 220); /* #7DD3FC */
-    --card-coral: oklch(70% 0.15 10); /* #FB7185 */
-    --card-mint: oklch(85% 0.12 165); /* #6EE7B7 */
-    --card-orange: oklch(75% 0.15 55); /* #FB923C */
-    --card-lavender: oklch(80% 0.12 285); /* #C4B5FD */
+    /* Edition accents — QR ring glows */
+    --edition-tech: oklch(70% 0.16 235);        /* blue */
+    --edition-medicine: oklch(75% 0.13 165);    /* teal */
+    --edition-business: oklch(80% 0.13 85);     /* gold */
 
-    /* Dark Mode Colors */
-    --dark-background: oklch(25% 0.02 50); /* #2D2520 */
-    --dark-card: oklch(32% 0.02 50); /* #4A3F37 */
-    --dark-muted: oklch(42% 0.02 50); /* #6B5D52 */
+    /* Vibrant tokens kept for compatibility (mapped to brand) */
+    --card-yellow: var(--edition-business);
+    --card-purple: var(--color-secondary);
+    --card-magenta: var(--color-secondary);
+    --card-blue: var(--edition-tech);
+    --card-coral: var(--color-secondary);
+    --card-mint: var(--edition-medicine);
+    --card-orange: var(--color-secondary);
+    --card-lavender: var(--color-secondary);
 
-    /* Status Colors */
     --success: oklch(70% 0.15 165);
     --warning: oklch(75% 0.16 80);
     --error: oklch(60% 0.2 25);
     --info: oklch(70% 0.12 210);
 
-    /* UI Elements */
-    --color-border: oklch(0% 0 0);
-    --color-input: oklch(0% 0 0);
-    --color-ring: oklch(40.5% 0.12 310);
-    --radius: 1.5rem;
+    --color-border: oklch(22% 0 0);
+    --color-input: oklch(22% 0 0);
+    --color-ring: oklch(92% 0.013 85);
+    --radius: 0.25rem;
 
-    /* Transitions */
     --transition-fast: 150ms ease-in-out;
     --transition-medium: 300ms ease-in-out;
     --transition-slow: 500ms cubic-bezier(0.34, 1, 0.64, 1);
+
+    /* Fonts */
+    --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+    --font-serif: "Cormorant Garamond", Georgia, serif;
   }
 
   .dark {
-    --color-background: oklch(25% 0.02 50); /* #2D2520 */
-    --color-foreground: oklch(93.2% 0.032 68.4); /* #fce5cf */
-    --color-card: oklch(32% 0.02 50);
-    --color-card-foreground: oklch(93.2% 0.032 68.4);
-    --color-border: oklch(42% 0.02 50);
-    --color-input: oklch(42% 0.02 50);
+    --color-background: oklch(8% 0 0);
+    --color-foreground: oklch(92% 0.013 85);
   }
 }
 
@@ -98,93 +90,86 @@
   }
 
   body {
-    @apply bg-background text-foreground;
-    font-family: "Lora", Georgia, serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6,
-  button,
-  nav,
-  .heading,
-  .sans-serif {
-    font-family: "Supreme", system-ui, -apple-system, sans-serif;
+  h1, h2, h3, h4, h5, h6, .display {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  ::selection {
+    background: var(--color-foreground);
+    color: var(--color-background);
   }
 }
 
 @layer components {
-  /* Button Styles - Two Variants Only */
   .btn-filled {
-    @apply bg-primary hover:bg-[var(--color-primary-hover)]
-           border-2 border-foreground text-foreground uppercase font-bold
-           py-3 px-7 rounded-full inline-flex items-center gap-2
-           transition-all duration-200;
-    transition-timing-function: cubic-bezier(0.34, 1, 0.64, 1);
+    @apply bg-foreground text-background uppercase
+           tracking-[0.18em] text-xs font-medium
+           py-3.5 px-7 inline-flex items-center justify-center gap-2
+           transition-all duration-200 hover:opacity-80;
+    font-family: var(--font-sans);
   }
 
   .btn-transparent {
-    @apply bg-transparent hover:bg-foreground hover:text-background
-           border-2 border-foreground text-foreground uppercase font-bold
-           py-3 px-7 rounded-full inline-flex items-center gap-2
-           transition-all duration-200;
+    @apply bg-transparent border border-foreground text-foreground uppercase
+           tracking-[0.18em] text-xs font-medium
+           py-3.5 px-7 inline-flex items-center justify-center gap-2
+           transition-all duration-200 hover:bg-foreground hover:text-background;
+    font-family: var(--font-sans);
   }
 
-  /* Card Hover Effect */
-  .card-hover {
-    @apply transition-transform duration-500 hover:scale-[1.02];
-    transition-timing-function: cubic-bezier(0.34, 1, 0.64, 1);
+  .eyebrow {
+    @apply uppercase tracking-[0.28em] text-[11px] font-medium text-muted-foreground;
+    font-family: var(--font-sans);
   }
 
-  /* Typography Styles */
-  .heading-xl {
-    @apply font-black text-6xl md:text-8xl lg:text-9xl uppercase
-           tracking-tighter leading-[0.72];
+  .display-xl {
+    font-family: var(--font-serif);
+    @apply font-light text-6xl md:text-8xl lg:text-[10rem] leading-[0.92] tracking-[-0.03em];
   }
 
-  .heading-lg {
-    @apply font-extrabold md:font-black text-3xl md:text-5xl lg:text-5xl
-           tracking-normal leading-tight;
+  .display-lg {
+    font-family: var(--font-serif);
+    @apply font-light text-5xl md:text-7xl leading-[0.95] tracking-[-0.025em];
   }
 
-  .heading-md {
-    @apply font-extrabold text-2xl md:text-3xl tracking-normal;
+  .display-md {
+    font-family: var(--font-serif);
+    @apply font-light text-3xl md:text-5xl leading-tight tracking-[-0.02em];
   }
 
-  .heading-sm {
-    @apply font-bold text-xl uppercase tracking-tight;
+  .tagline {
+    font-family: var(--font-serif);
+    @apply font-light italic text-xl md:text-2xl tracking-wide text-muted-foreground;
   }
 
   .nav-text {
-    @apply uppercase font-bold text-sm tracking-[1.8px];
+    @apply uppercase tracking-[0.22em] text-xs font-medium;
+    font-family: var(--font-sans);
   }
 
-  .body-text {
-    @apply font-normal leading-[1.25] text-[2rem] md:text-[3.2rem];
-    font-family: "Lora", Georgia, serif;
-  }
-
-  /* Footer Styles */
   .footer-header {
-    @apply uppercase font-bold text-xs md:text-sm tracking-[1.8px] text-foreground mb-3 md:mb-4;
+    @apply uppercase tracking-[0.22em] text-[11px] font-medium text-muted-foreground mb-4;
+    font-family: var(--font-sans);
   }
 
   .footer-link {
-    @apply underline decoration-2 text-sm md:text-base text-foreground
-           hover:opacity-70 transition-opacity duration-200;
+    @apply text-sm text-muted-foreground hover:text-foreground transition-colors duration-200;
+    font-family: var(--font-sans);
   }
 
-  /* Article Title with Responsive Sizing */
-  .article-title {
-    font-size: 120px;
-  }
+  /* Edition glow rings */
+  .ring-tech    { box-shadow: 0 0 60px -10px hsl(from var(--edition-tech) h s l / 0.5); }
+  .ring-medicine{ box-shadow: 0 0 60px -10px hsl(from var(--edition-medicine) h s l / 0.5); }
+  .ring-business{ box-shadow: 0 0 60px -10px hsl(from var(--edition-business) h s l / 0.5); }
 
-  @media (max-width: 700px) {
-    .article-title {
-      font-size: 60px;
-    }
-  }
+  .text-tech     { color: var(--edition-tech); }
+  .text-medicine { color: var(--edition-medicine); }
+  .text-business { color: var(--edition-business); }
 }
