@@ -146,7 +146,7 @@
 
   .tagline {
     font-family: var(--font-serif);
-    @apply font-light italic text-xl md:text-2xl tracking-wide text-foreground/80;
+    @apply font-light italic text-xl md:text-2xl tracking-wide text-muted-foreground;
   }
 
   .nav-text {
@@ -155,12 +155,12 @@
   }
 
   .footer-header {
-    @apply uppercase tracking-[0.22em] text-[11px] font-medium text-foreground/60 mb-4;
+    @apply uppercase tracking-[0.22em] text-[11px] font-medium text-muted-foreground mb-4;
     font-family: var(--font-sans);
   }
 
   .footer-link {
-    @apply text-sm text-foreground/80 hover:text-foreground transition-colors duration-200;
+    @apply text-sm text-muted-foreground hover:text-foreground transition-colors duration-200;
     font-family: var(--font-sans);
   }
 
