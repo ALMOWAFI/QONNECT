@@ -235,6 +235,42 @@ app.get('/api/resolve-slug/:slug', async (req, res) => {
   }
 });
 
+app.post('/api/auth/claim-bridge', async (req, res) => {
+  const { email } = req.body;
+  const { createClient } = await import('@supabase/supabase-js');
+  
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    console.error('❌ Supabase credentials missing in server/index.js');
+    return res.status(500).json({ error: 'Server misconfigured: Missing Supabase keys.' });
+  }
+
+  const supabase = createClient(url, key);
+
+  try {
+    console.log(`📡 Triggering Magic Link for: ${email}`);
+    const { error } = await supabase.auth.signInWithOtp({ 
+      email, 
+      options: { 
+        emailRedirectTo: `${req.headers.origin}/members` 
+      } 
+    });
+
+    if (error) {
+      console.error('❌ Supabase Auth Error:', error.message);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log(`✅ Magic Link sent successfully to: ${email}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Fatal Server Auth Error:', error.message);
+    res.status(500).json({ error: 'Authentication service unavailable.' });
+  }
+});
+
 // --- CATCH-ALL ---
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));

@@ -12,6 +12,7 @@ import Success from "./pages/Success";
 import Bridge from "./pages/Bridge";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
+import Members from "./pages/Members";
 import NotFound from "./pages/NotFound";
 import { useCartSync } from "./hooks/useCartSync";
 
@@ -50,6 +51,7 @@ const router = createBrowserRouter([
       { path: "/b/:slug", element: <Bridge /> },
       { path: "/admin", element: <Admin /> },
       { path: "/login", element: <Login /> },
+      { path: "/members", element: <Members /> },
       { path: "*", element: <NotFound /> },
     ],
   },
