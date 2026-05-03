@@ -30,11 +30,14 @@ CREATE TABLE orders (
   bridge_id UUID REFERENCES bridges(id),
   stripe_session_id TEXT UNIQUE,
   shopify_order_id TEXT,
-  edition TEXT NOT NULL, -- 'robotics', 'medicine', etc.
-  tier TEXT NOT NULL, -- 'basic', 'standard', 'premium'
+  items JSONB, -- Stores summarized order items
+  intake_data JSONB, -- Stores the customer's intake ritual response
+  customer_email TEXT,
+  edition TEXT, 
+  tier TEXT, 
   status TEXT DEFAULT 'pending_payment' 
     CHECK (status IN ('pending_payment', 'intake_required', 'ready_to_print', 'printing', 'shipped', 'delivered')),
-  print_asset_url TEXT, -- Link to S3/Storage high-res file
+  print_asset_url TEXT, 
   shipping_address JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
