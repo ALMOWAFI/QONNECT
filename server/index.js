@@ -404,6 +404,132 @@ app.patch('/api/admin/orders/:sessionId/status', adminLimiter, async (req, res) 
   }
 });
 
+// ---------------------------------------------------------------------------
+// MEMBERS API
+// All routes here require a valid Supabase JWT in Authorization: Bearer <token>
+// ---------------------------------------------------------------------------
+
+async function requireAuth(req, res) {
+  const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
+  if (!token) { res.status(401).json({ error: 'Unauthorized.' }); return null; }
+
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) { res.status(401).json({ error: 'Invalid or expired session.' }); return null; }
+  return user;
+}
+
+// GET /api/members/bridges — all bridges for the logged-in user with analytics
+app.get('/api/members/bridges', apiLimiter, async (req, res) => {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+    // Fetch bridges owned by this user OR linked to orders with their email
+    const { data: bridges, error } = await supabase
+      .from('bridges')
+      .select(`
+        id, slug, target_url, destination_type, mode, template_data,
+        is_active, scan_count, created_at, updated_at,
+        orders!bridges_order_id_fk (
+          stripe_session_id, status, payment_status, items, customer_email
+        )
+      `)
+      .or(`owner_id.eq.${user.id},orders.customer_email.eq.${user.email}`)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Enrich each bridge with analytics from the view
+    const enriched = await Promise.all((bridges || []).map(async (bridge) => {
+      const { data: analytics } = await supabase
+        .from('bridge_scan_summary')
+        .select('total_scans, unique_scans, scans_7d, scans_30d, last_scanned_at, top_country, top_device')
+        .eq('slug', bridge.slug)
+        .single();
+
+      return {
+        slug:            bridge.slug,
+        targetUrl:       bridge.target_url,
+        destinationType: bridge.destination_type,
+        mode:            bridge.mode,
+        isActive:        bridge.is_active,
+        createdAt:       bridge.created_at,
+        order: bridge.orders ? {
+          sessionId:     bridge.orders.stripe_session_id,
+          status:        bridge.orders.status,
+          paymentStatus: bridge.orders.payment_status,
+          items:         bridge.orders.items || [],
+        } : null,
+        analytics: analytics || {
+          total_scans: bridge.scan_count || 0,
+          unique_scans: 0,
+          scans_7d: 0,
+          scans_30d: 0,
+          last_scanned_at: null,
+          top_country: null,
+          top_device: null,
+        },
+      };
+    }));
+
+    res.json(enriched);
+  } catch (err) {
+    console.error('❌ Members bridges error:', err.message);
+    res.status(500).json({ error: 'Could not load your bridges.' });
+  }
+});
+
+// PATCH /api/members/bridges/:slug — update destination URL
+app.patch('/api/members/bridges/:slug', apiLimiter, async (req, res) => {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const { targetUrl } = req.body;
+  if (!targetUrl) return res.status(400).json({ error: 'targetUrl is required.' });
+
+  try {
+    new URL(targetUrl); // validate URL
+  } catch {
+    return res.status(400).json({ error: 'Invalid URL.' });
+  }
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+    // Verify this bridge belongs to this user (via owner_id or order email)
+    const { data: bridge } = await supabase
+      .from('bridges')
+      .select('id, owner_id, orders!bridges_order_id_fk(customer_email)')
+      .eq('slug', req.params.slug)
+      .single();
+
+    if (!bridge) return res.status(404).json({ error: 'Bridge not found.' });
+
+    const isOwner  = bridge.owner_id === user.id;
+    const isCustomer = bridge.orders?.customer_email === user.email;
+    if (!isOwner && !isCustomer) return res.status(403).json({ error: 'Not your bridge.' });
+
+    const { error } = await supabase
+      .from('bridges')
+      .update({ target_url: targetUrl, updated_at: new Date().toISOString() })
+      .eq('slug', req.params.slug);
+
+    if (error) throw error;
+    res.json({ success: true, slug: req.params.slug, targetUrl });
+  } catch (err) {
+    console.error('❌ Bridge update error:', err.message);
+    res.status(500).json({ error: 'Could not update bridge.' });
+  }
+});
+
 // Webhook from print-on-demand supplier (Printful / Gelato)
 app.post('/api/pod-webhook', async (req, res) => {
   // TODO: Validate HMAC signature from POD provider

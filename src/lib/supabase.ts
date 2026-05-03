@@ -1,0 +1,19 @@
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL  as string;
+const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+if (!supabaseUrl || !supabaseAnon) {
+  console.warn("VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing.");
+}
+
+export const supabase = createClient(supabaseUrl || "", supabaseAnon || "");
+
+export async function getSession() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
+}
+
+export async function signOut() {
+  await supabase.auth.signOut();
+}

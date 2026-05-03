@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Loader2, CheckCircle2, Globe, ArrowRight } from "lucide-react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { Loader2, CheckCircle2, Globe, ArrowRight, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   OrderSummary,
@@ -100,6 +100,91 @@ function renderSubmittedState(
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// Slug availability state per itemKey
+type SlugStatus = "idle" | "checking" | "available" | "taken" | "short";
+
+function useSlugAvailability(slug: string, sessionId: string, enabled: boolean) {
+  const [status, setStatus] = useState<SlugStatus>("idle");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!enabled || !slug) { setStatus("idle"); return; }
+    if (slug.length < 3) { setStatus("short"); return; }
+
+    setStatus("checking");
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    timerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/slugs/${encodeURIComponent(slug)}/available?sessionId=${encodeURIComponent(sessionId)}`);
+        const data = await res.json();
+        setStatus(data.available ? "available" : "taken");
+      } catch {
+        setStatus("idle");
+      }
+    }, 400);
+
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [slug, sessionId, enabled]);
+
+  return status;
+}
+
+function SlugStatusIcon({ status }: { status: SlugStatus }) {
+  if (status === "checking") return <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />;
+  if (status === "available") return <Check className="w-4 h-4 text-emerald-500" />;
+  if (status === "taken")    return <X className="w-4 h-4 text-destructive" />;
+  return null;
+}
+
+function SlugStatusText({ status }: { status: SlugStatus }) {
+  if (status === "available") return <span className="text-[10px] text-emerald-500 uppercase tracking-[0.2em]">Available</span>;
+  if (status === "taken")     return <span className="text-[10px] text-destructive uppercase tracking-[0.2em]">Already taken</span>;
+  if (status === "short")     return <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Min 3 characters</span>;
+  return null;
+}
+
+function SlugField({
+  slug, sessionId, disabled, onChange,
+}: {
+  slug: string;
+  sessionId: string;
+  disabled: boolean;
+  onChange: (val: string) => void;
+}) {
+  const status = useSlugAvailability(slug, sessionId, slug.length >= 3);
+
+  return (
+    <div className="relative group pt-4 animate-in slide-in-from-top-4 duration-700">
+      <label className="absolute top-0 left-0 text-[10px] uppercase tracking-[0.22em] text-primary/60 font-medium">
+        Choose your unique slug
+      </label>
+      <div className="flex items-end border-b border-border focus-within:border-primary/50 transition-all">
+        <span className="pointer-events-none text-primary/40 font-mono text-lg pb-[1.35rem] pr-1 whitespace-nowrap">
+          qonnect.ai/b/
+        </span>
+        <input
+          type="text"
+          placeholder="username"
+          value={slug}
+          onChange={(e) => onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+          className="flex-1 bg-transparent py-6 pr-10 text-2xl font-serif focus:outline-none placeholder:text-muted-foreground/10"
+          required
+          disabled={disabled}
+        />
+        {/* Status icon — right side of input */}
+        <span className="absolute right-0 bottom-[1.6rem]">
+          <SlugStatusIcon status={status} />
+        </span>
+      </div>
+      {/* Status text below */}
+      <div className="mt-2 h-4">
+        <SlugStatusText status={status} />
       </div>
     </div>
   );
@@ -285,20 +370,12 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
                 </div>
 
                 {entry.mode === "bridge" && (
-                  <div className="relative group pt-4 animate-in slide-in-from-top-4 duration-700">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center text-primary/40 font-mono text-lg pt-4">
-                      qonnect.ai/b/
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="username"
-                      value={entry.slug}
-                      onChange={(e) => updateEntry(item.itemKey, "slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                      className="w-full bg-transparent border-b border-border py-6 pl-32 pr-4 text-2xl font-serif focus:outline-none focus:border-primary/50 transition-all placeholder:text-muted-foreground/10"
-                      required={entry.mode === "bridge"}
-                    />
-                    <label className="absolute top-0 left-0 text-[10px] uppercase tracking-[0.22em] text-primary/60 font-medium">Choose your unique slug</label>
-                  </div>
+                  <SlugField
+                    slug={entry.slug}
+                    sessionId={order.sessionId}
+                    disabled={isSubmitting}
+                    onChange={(val) => updateEntry(item.itemKey, "slug", val)}
+                  />
                 )}
 
                 <div className="grid gap-10 md:grid-cols-[250px_1fr] pt-4">
