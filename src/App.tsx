@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import Index from "./pages/Index";
 import Product from "./pages/Product";
+import Success from "./pages/Success";
 import NotFound from "./pages/NotFound";
 import { useCartSync } from "./hooks/useCartSync";
 
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
     children: [
       { path: "/", element: <Index /> },
       { path: "/product/:handle", element: <Product /> },
+      { path: "/success", element: <Success /> },
       { path: "*", element: <NotFound /> },
     ],
   },

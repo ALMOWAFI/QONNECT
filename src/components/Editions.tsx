@@ -4,66 +4,86 @@ const editions = [
   {
     n: "01",
     name: "Tech",
-    tagline: "Scan to connect.",
+    tagline: "Systems thinking, worn on the back.",
     accent: "text-tech",
-    ring: "ring-tech",
-    desc: "For builders and engineers. Circuitry meets the handshake.",
+    desc: "For builders and engineers who want the piece to feel precise, sharp, and quietly advanced.",
   },
   {
     n: "02",
     name: "Medicine",
-    tagline: "Scan to heal. Impact. Inspire.",
+    tagline: "Care, clarity, and pulse.",
     accent: "text-medicine",
-    ring: "ring-medicine",
-    desc: "For those who care for others. The pulse beneath the print.",
+    desc: "For clinicians, students, and researchers who want the signal to feel calm, trusted, and deeply human.",
   },
   {
     n: "03",
     name: "Business",
-    tagline: "Scan to build the future.",
+    tagline: "Quiet ambition, direct access.",
     accent: "text-business",
-    ring: "ring-business",
-    desc: "For founders and operators. Quiet ambition, loud results.",
+    desc: "For founders and operators who want the scan to open a sharper pitch than a business card ever could.",
   },
+];
+
+const principles = [
+  "One silhouette, tuned by edition tone instead of loud graphic noise.",
+  "Accent color shifts by world, while the base palette stays dark and premium.",
+  "The QR stays the ritual. The edition changes what the ritual feels like.",
 ];
 
 const Editions = () => {
   return (
-    <section id="editions" className="px-5 md:px-12 py-24 md:py-32 border-t border-border">
-      <div className="max-w-5xl mx-auto">
-        <p className="eyebrow text-center">The Editions</p>
-        <h2 className="display-lg text-center mt-6">
-          Pick your <em className="italic">tribe.</em>
-        </h2>
-        <p className="tagline text-center mt-6 max-w-2xl mx-auto">
-          Three worlds. One bridge. The QR is your handshake.
-        </p>
-      </div>
-
-      <div className="mt-16 max-w-7xl mx-auto">
-        <div className="rounded-sm overflow-hidden border border-border">
-          <img
-            src={editionsImage}
-            alt="QONNECT three editions: Tech, Medicine, Business hoodies with QR codes on the back"
-            className="w-full h-auto block"
-            loading="lazy"
-          />
+    <section id="editions" className="px-5 py-24 md:px-12 md:py-32">
+      <div className="mx-auto max-w-7xl">
+        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-2xl">
+            <p className="eyebrow">Editions</p>
+            <h2 className="display-lg mt-6">Three circles, one signal.</h2>
+          </div>
+          <p className="section-intro max-w-xl">
+            Each edition keeps the same silhouette and scan ritual, then
+            changes the tone so the piece feels native to the world you move
+            through.
+          </p>
         </div>
-      </div>
 
-      <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-px bg-border max-w-7xl mx-auto">
-        {editions.map((e) => (
-          <article key={e.name} className="bg-background p-8 md:p-10">
-            <div className="flex items-baseline gap-3 mb-4">
-              <span className={`nav-text ${e.accent}`}>{e.n}.</span>
-              <span className={`nav-text ${e.accent}`}>{e.name}</span>
+        <div className="mt-14 grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+          <div className="surface-panel p-4 md:p-5">
+            <div className="overflow-hidden rounded-[1.5rem] border border-border/70 bg-muted/30">
+              <img
+                src={editionsImage}
+                alt="QONNECT editions for technology, medicine, and business."
+                className="block h-auto w-full transition-transform duration-700 hover:scale-[1.02]"
+                loading="lazy"
+              />
             </div>
-            <p className="display font-light italic text-2xl md:text-3xl leading-tight">
-              {e.tagline}
-            </p>
-            <p className="text-sm text-muted-foreground mt-6 leading-relaxed">{e.desc}</p>
-          </article>
-        ))}
+          </div>
+
+          <div className="grid gap-4">
+            {editions.map((edition) => (
+              <article key={edition.name} className="surface-panel p-6 md:p-7">
+                <div className="flex items-center gap-3">
+                  <span className={`nav-text ${edition.accent}`}>{edition.n}</span>
+                  <span className={`nav-text ${edition.accent}`}>{edition.name}</span>
+                </div>
+
+                <p className="display mt-5 text-2xl font-light leading-tight md:text-3xl">
+                  {edition.tagline}
+                </p>
+                <p className="mt-4 text-sm leading-7 text-muted-foreground">
+                  {edition.desc}
+                </p>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {principles.map((principle) => (
+            <div key={principle} className="surface-panel p-5">
+              <p className="text-sm leading-7 text-muted-foreground">{principle}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

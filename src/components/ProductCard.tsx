@@ -32,14 +32,14 @@ export const ProductCard = ({ product }: Props) => {
   return (
     <Link
       to={`/product/${node.handle}`}
-      className="group block bg-background border border-border hover:border-foreground/50 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1 active:scale-[0.98]"
+      className="group block border border-border bg-background transition-all duration-500 [transition-timing-function:cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1 hover:border-foreground/50 active:scale-[0.98]"
     >
       <div className="aspect-[4/5] overflow-hidden bg-muted">
         {image ? (
           <img
             src={image.url}
             alt={image.altText || node.title}
-            className="w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-[1.05]"
+            className="h-full w-full object-cover transition-transform duration-700 [transition-timing-function:cubic-bezier(0.32,0.72,0,1)] group-hover:scale-[1.05]"
             loading="lazy"
           />
         ) : (

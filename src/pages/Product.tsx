@@ -31,8 +31,12 @@ const Product = () => {
   const { handle } = useParams<{ handle: string }>();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [selectedTier, setSelectedTier] = useState<"basic" | "standard" | "premium">("basic");
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
+    null,
+  );
+  const [selectedTier, setSelectedTier] = useState<
+    "basic" | "standard" | "premium"
+  >("basic");
   const addItem = useCartStore((s) => s.addItem);
   const isLoading = useCartStore((s) => s.isLoading);
 
@@ -47,11 +51,13 @@ const Product = () => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await storefrontApiRequest(PRODUCT_BY_HANDLE_QUERY, { handle });
+        const data = await storefrontApiRequest(PRODUCT_BY_HANDLE_QUERY, {
+          handle,
+        });
         if (!cancelled && data) {
-          const p = data?.data?.product;
-          setProduct(p);
-          setSelectedVariantId(p?.variants?.edges?.[0]?.node?.id || null);
+          const fetchedProduct = data?.data?.product;
+          setProduct(fetchedProduct);
+          setSelectedVariantId(fetchedProduct?.variants?.edges?.[0]?.node?.id || null);
         }
       } catch (err) {
         console.error(err);
@@ -64,12 +70,13 @@ const Product = () => {
     };
   }, [handle]);
 
-  const selectedVariant = product?.variants.edges.find((v) => v.node.id === selectedVariantId)?.node;
+  const selectedVariant = product?.variants.edges.find(
+    (variant) => variant.node.id === selectedVariantId,
+  )?.node;
 
   const handleAdd = async () => {
     if (!product || !selectedVariant) return;
-    
-    // In a real Stripe implementation, we would handle the tier upcharge here or in the cart
+
     await addItem({
       product: {
         node: {
@@ -80,12 +87,15 @@ const Product = () => {
       variantTitle: `${selectedVariant.title} (${selectedTier.toUpperCase()})`,
       price: {
         ...selectedVariant.price,
-        amount: (parseFloat(selectedVariant.price.amount) + tiers.find(t => t.id === selectedTier)!.price).toString()
+        amount: (
+          parseFloat(selectedVariant.price.amount) +
+          tiers.find((tier) => tier.id === selectedTier)!.price
+        ).toString(),
       },
       quantity: 1,
       selectedOptions: [
         ...(selectedVariant.selectedOptions || []),
-        { name: "Service Tier", value: selectedTier }
+        { name: "Service Tier", value: selectedTier },
       ],
     });
   };
@@ -93,38 +103,38 @@ const Product = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
-      <main className="px-5 md:px-12 py-12 md:py-20">
-        <div className="max-w-6xl mx-auto">
+      <main className="px-5 py-12 md:px-12 md:py-20">
+        <div className="mx-auto max-w-6xl">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 nav-text text-muted-foreground hover:text-foreground mb-10"
+            className="mb-10 inline-flex items-center gap-2 nav-text text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to drop
           </Link>
 
           {loading ? (
-            <div className="py-32 flex justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <div className="flex justify-center py-32">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : !product ? (
             <div className="py-32 text-center">
               <p className="display text-3xl">Not found.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16">
+            <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:gap-16">
               <div className="space-y-4">
                 {product.images.edges.length > 0 ? (
-                  product.images.edges.map((img, i) => (
-                    <div key={i} className="bg-muted aspect-[4/5] overflow-hidden">
+                  product.images.edges.map((image, index) => (
+                    <div key={index} className="aspect-[4/5] overflow-hidden bg-muted">
                       <img
-                        src={img.node.url}
-                        alt={img.node.altText || product.title}
-                        className="w-full h-full object-cover"
+                        src={image.node.url}
+                        alt={image.node.altText || product.title}
+                        className="h-full w-full object-cover"
                       />
                     </div>
                   ))
                 ) : (
-                  <div className="bg-muted aspect-[4/5] flex items-center justify-center text-muted-foreground text-xs uppercase tracking-widest">
+                  <div className="flex aspect-[4/5] items-center justify-center bg-muted text-xs uppercase tracking-widest text-muted-foreground">
                     No image
                   </div>
                 )}
@@ -135,63 +145,73 @@ const Product = () => {
                 <div className="mt-3 flex items-baseline gap-2">
                   <p className="text-lg text-muted-foreground">
                     {product.priceRange.minVariantPrice.currencyCode}{" "}
-                    {(parseFloat(product.priceRange.minVariantPrice.amount) + tiers.find(t => t.id === selectedTier)!.price).toFixed(2)}
+                    {(
+                      parseFloat(product.priceRange.minVariantPrice.amount) +
+                      tiers.find((tier) => tier.id === selectedTier)!.price
+                    ).toFixed(2)}
                   </p>
                   {selectedTier !== "basic" && (
-                    <span className="text-xs text-primary uppercase tracking-tighter">
+                    <span className="text-xs uppercase tracking-tighter text-primary">
                       + Tier Upgrade
                     </span>
                   )}
                 </div>
 
                 {product.description && (
-                  <p className="mt-8 text-base leading-relaxed text-muted-foreground whitespace-pre-line">
+                  <p className="mt-8 whitespace-pre-line text-base leading-relaxed text-muted-foreground">
                     {product.description}
                   </p>
                 )}
 
-                {/* Tier Selection */}
-                <div className="mt-10 pt-10 border-t border-border">
-                  <p className="nav-text mb-4">Service Tier</p>
+                <div className="mt-10 border-t border-border pt-10">
+                  <p className="mb-4 nav-text">Service Tier</p>
                   <div className="grid grid-cols-1 gap-3">
-                    {tiers.map((t) => (
+                    {tiers.map((tier) => (
                       <button
-                        key={t.id}
-                        onClick={() => setSelectedTier(t.id as any)}
-                        className={`p-4 text-left border transition-all ${
-                          selectedTier === t.id
+                        key={tier.id}
+                        onClick={() => setSelectedTier(tier.id)}
+                        className={`border p-4 text-left transition-all ${
+                          selectedTier === tier.id
                             ? "border-foreground bg-foreground/5 shadow-sm"
                             : "border-border hover:border-foreground/50"
                         }`}
                       >
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-medium uppercase tracking-widest text-xs">{t.name}</span>
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="text-xs font-medium uppercase tracking-widest">
+                            {tier.name}
+                          </span>
                           <span className="text-xs text-muted-foreground">
-                            {t.price > 0 ? `+$${t.price}` : "Included"}
+                            {tier.price > 0 ? `+$${tier.price}` : "Included"}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{t.desc}</p>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {tier.desc}
+                        </p>
                       </button>
                     ))}
                   </div>
+                  <p className="mt-4 text-sm leading-7 text-muted-foreground">
+                    Standard and Premium add the page-building service on top
+                    of the garment itself.
+                  </p>
                 </div>
 
                 {product.variants.edges.length > 1 && (
                   <div className="mt-8">
-                    <p className="nav-text mb-3">Variant</p>
+                    <p className="mb-3 nav-text">Variant</p>
                     <div className="flex flex-wrap gap-2">
-                      {product.variants.edges.map((v) => (
+                      {product.variants.edges.map((variant) => (
                         <button
-                          key={v.node.id}
-                          onClick={() => setSelectedVariantId(v.node.id)}
-                          disabled={!v.node.availableForSale}
-                          className={`px-4 py-2 text-xs uppercase tracking-widest border transition-colors ${
-                            selectedVariantId === v.node.id
+                          key={variant.node.id}
+                          onClick={() => setSelectedVariantId(variant.node.id)}
+                          disabled={!variant.node.availableForSale}
+                          className={`border px-4 py-2 text-xs uppercase tracking-widest transition-colors ${
+                            selectedVariantId === variant.node.id
                               ? "border-foreground bg-foreground text-background"
                               : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
-                          } disabled:opacity-40 disabled:cursor-not-allowed`}
+                          } disabled:cursor-not-allowed disabled:opacity-40`}
                         >
-                          {v.node.title}
+                          {variant.node.title}
                         </button>
                       ))}
                     </div>
@@ -201,10 +221,10 @@ const Product = () => {
                 <button
                   onClick={handleAdd}
                   disabled={isLoading || !selectedVariant?.availableForSale}
-                  className="btn-filled w-full mt-10 disabled:opacity-50"
+                  className="btn-filled mt-10 w-full disabled:opacity-50"
                 >
                   {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : !selectedVariant?.availableForSale ? (
                     "Sold out"
                   ) : (
@@ -212,11 +232,11 @@ const Product = () => {
                   )}
                 </button>
 
-                <div className="mt-10 pt-8 border-t border-border space-y-3 text-sm text-muted-foreground">
-                  <p>· Premium heavyweight fabric</p>
-                  <p>· Oversized fit · Unisex</p>
-                  <p>· QR print on the back</p>
-                  <p>· High quality print</p>
+                <div className="mt-10 space-y-3 border-t border-border pt-8 text-sm text-muted-foreground">
+                  <p>- Premium heavyweight fabric</p>
+                  <p>- Oversized fit, unisex cut</p>
+                  <p>- QR print on the back</p>
+                  <p>- High-resolution print finish</p>
                 </div>
               </div>
             </div>
