@@ -32,14 +32,14 @@ export const ProductCard = ({ product }: Props) => {
   return (
     <Link
       to={`/product/${node.handle}`}
-      className="group block bg-background border border-border hover:border-foreground transition-colors duration-300"
+      className="group block bg-background border border-border hover:border-foreground/50 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1 active:scale-[0.98]"
     >
       <div className="aspect-[4/5] overflow-hidden bg-muted">
         {image ? (
           <img
             src={image.url}
             alt={image.altText || node.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            className="w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-[1.05]"
             loading="lazy"
           />
         ) : (
@@ -50,7 +50,7 @@ export const ProductCard = ({ product }: Props) => {
       </div>
       <div className="p-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="display text-xl font-medium truncate">{node.title}</h3>
+          <h3 className="display text-xl font-medium truncate group-hover:text-primary transition-colors duration-300">{node.title}</h3>
           <p className="text-sm text-muted-foreground mt-1">
             {price.currencyCode} {parseFloat(price.amount).toFixed(2)}
           </p>

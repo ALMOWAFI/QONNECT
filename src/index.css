@@ -112,7 +112,7 @@
     @apply bg-foreground text-background uppercase
            tracking-[0.18em] text-xs font-medium
            py-3.5 px-7 inline-flex items-center justify-center gap-2
-           transition-all duration-200 hover:opacity-80;
+           transition-all duration-300 hover:opacity-80 active:scale-[0.98] active:opacity-100;
     font-family: var(--font-sans);
   }
 
@@ -120,7 +120,7 @@
     @apply bg-transparent border border-foreground text-foreground uppercase
            tracking-[0.18em] text-xs font-medium
            py-3.5 px-7 inline-flex items-center justify-center gap-2
-           transition-all duration-200 hover:bg-foreground hover:text-background;
+           transition-all duration-300 hover:bg-foreground hover:text-background active:scale-[0.98];
     font-family: var(--font-sans);
   }
 
