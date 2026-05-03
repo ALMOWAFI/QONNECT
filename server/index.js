@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getOrderRecord, saveOrderRecord } from './orderStore.js';
+import { getOrderRecord, saveOrderRecord, isSlugAvailable, readOrders, findDestinationBySlug } from './orderStore.js';
 
 dotenv.config();
 
@@ -162,18 +162,26 @@ app.post('/api/orders/:sessionId/intake', async (req, res) => {
     return;
   }
 
-  const normalizedEntries = entries.map((entry) => ({
-    itemKey: entry.itemKey,
-    targetUrl: String(entry.targetUrl || '').trim(),
-    destinationType: String(entry.destinationType || 'other').trim(),
-    brief: String(entry.brief || '').trim(),
-  }));
+  const normalizedEntries = [];
+  for (const entry of entries) {
+    const mode = entry.mode || 'direct';
+    const slug = mode === 'bridge' ? String(entry.slug || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '') : null;
+    
+    if (mode === 'bridge') {
+      if (!slug) {
+        res.status(400).json({ error: `A unique slug is required for the QONNECT Bridge on one of your items.` });
+        return;
+      }
+      const available = await isSlugAvailable(slug, sessionId);
+      if (!available) {
+        res.status(400).json({ error: `The bridge slug '${slug}' is already claimed by another member of the tribe.` });
+        return;
+      }
+    }
 
-  for (const item of record.items) {
-    const entry = normalizedEntries.find((candidate) => candidate.itemKey === item.itemKey);
-
-    if (!entry) {
-      res.status(400).json({ error: `Missing intake details for ${item.title}.` });
+    const item = record.items.find((i) => i.itemKey === entry.itemKey);
+    if (!item) {
+      res.status(400).json({ error: `Invalid item reference in intake.` });
       return;
     }
 
@@ -182,12 +190,21 @@ app.post('/api/orders/:sessionId/intake', async (req, res) => {
       return;
     }
 
-    if (item.tier !== 'basic' && entry.brief.length < 20) {
+    if (item.tier !== 'basic' && (!entry.brief || entry.brief.length < 20)) {
       res.status(400).json({
         error: `${item.title} requires a more complete build brief for the selected tier.`,
       });
       return;
     }
+
+    normalizedEntries.push({
+      itemKey: entry.itemKey,
+      mode,
+      targetUrl: String(entry.targetUrl || '').trim(),
+      destinationType: String(entry.destinationType || 'other').trim(),
+      brief: String(entry.brief || '').trim(),
+      slug: slug,
+    });
   }
 
   const timestamp = new Date().toISOString();
@@ -205,6 +222,39 @@ app.post('/api/orders/:sessionId/intake', async (req, res) => {
 
   const summary = await buildOrderSummary(sessionId);
   res.json(summary);
+});
+
+// Admin API
+app.get('/api/admin/orders', async (req, res) => {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const clientPassword = req.headers['x-admin-password'];
+
+  if (adminPassword && clientPassword !== adminPassword) {
+    res.status(401).json({ error: 'Unauthorized access to the Command Center.' });
+    return;
+  }
+
+  try {
+    const orders = await readOrders();
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/resolve-slug/:slug', async (req, res) => {
+  const { slug } = req.params;
+  
+  try {
+    const destination = await findDestinationBySlug(slug);
+    if (destination) {
+      res.json({ destination });
+    } else {
+      res.status(404).json({ error: 'Bridge not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('*', (req, res) => {

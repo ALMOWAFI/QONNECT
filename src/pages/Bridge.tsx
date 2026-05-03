@@ -2,15 +2,17 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Globe } from "lucide-react";
 
-// In a real implementation, this would fetch from your database (Supabase/Postgres)
-// For now, we simulate the redirection logic.
+// Fetch the real destination from the backend API
 const fetchDestination = async (slug: string) => {
-  // Simulating an API call to our backend
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  
-  // Logic: if it's a test slug, we point somewhere.
-  // Real world: lookup slug in the 'bridges' table.
-  return "https://linkedin.com/in/almowafi"; 
+  try {
+    const response = await fetch(`/api/resolve-slug/${encodeURIComponent(slug)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.destination;
+  } catch (err) {
+    console.error("Redirection fetch failed:", err);
+    return null;
+  }
 };
 
 const Bridge = () => {

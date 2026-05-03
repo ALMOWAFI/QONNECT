@@ -14,7 +14,9 @@ interface IntakeFormProps {
 
 interface EntryState {
   itemKey: string;
+  mode: "direct" | "bridge";
   targetUrl: string;
+  slug: string;
   destinationType: string;
   brief: string;
 }
@@ -29,9 +31,14 @@ function buildInitialEntries(
 
   return order.items.map((item) => {
     const existing = byItemKey.get(item.itemKey);
+    // In a new intake, basic tier defaults to direct, others to bridge
+    const defaultMode = item.tier === "basic" ? "direct" : "bridge";
+    
     return {
       itemKey: item.itemKey,
+      mode: (existing as any)?.mode || defaultMode,
       targetUrl: existing?.targetUrl || "",
+      slug: existing?.slug || "",
       destinationType: existing?.destinationType || "linkedin",
       brief: existing?.brief || "",
     };
@@ -73,7 +80,7 @@ function renderSubmittedState(
                 <div>
                   <p className="nav-text text-foreground">{item.title}</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    {formatTierLabel(item.tier)} tier
+                    {(entry as any)?.mode === 'bridge' ? 'QONNECT Bridge' : 'Direct Link'} · {formatTierLabel(item.tier)} tier
                   </p>
                 </div>
                 <span className="signal-chip">
@@ -82,12 +89,12 @@ function renderSubmittedState(
               </div>
 
               <p className="mt-4 break-all text-sm leading-7 text-muted-foreground">
-                {entry?.targetUrl}
+                {(entry as any)?.mode === 'bridge' ? `qonnect.ai/b/${entry?.slug}` : entry?.targetUrl}
               </p>
 
               {entry?.brief ? (
-                <p className="mt-4 text-sm leading-7 text-muted-foreground">
-                  {entry.brief}
+                <p className="mt-4 text-sm leading-7 text-muted-foreground italic">
+                  &ldquo;{entry.brief}&rdquo;
                 </p>
               ) : null}
             </div>
@@ -115,7 +122,7 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
 
   const updateEntry = (
     itemKey: string,
-    field: keyof Omit<EntryState, "itemKey">,
+    field: keyof EntryState,
     value: string
   ) => {
     setEntries((current) =>
@@ -140,6 +147,11 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
         return;
       }
 
+      if (entry.mode === "bridge" && !entry.slug) {
+        toast.error(`Please choose a slug for your ${item.title} bridge.`);
+        return;
+      }
+
       if (item.tier !== "basic" && entry.brief.trim().length < 20) {
         toast.error(
           `Add a clearer build brief for ${item.title}. Standard and Premium need more context.`
@@ -152,7 +164,7 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
     try {
       const updatedOrder = await submitOrderIntake(order.sessionId, {
         contactEmail,
-        entries,
+        entries: entries as any,
       });
 
       setSavedOrder(updatedOrder);
@@ -176,34 +188,30 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="mb-10 text-center">
-        <p className="eyebrow mb-4">Step 2: Connect Your World</p>
+      <div className="mb-12 text-center">
+        <p className="eyebrow mb-4">Step 2: Identity Selection</p>
         <h2 className="display-md">
-          The scannable <em className="italic">identity.</em>
+          Define the <em className="italic">connection.</em>
         </h2>
         <p className="mt-4 text-lg italic text-muted-foreground">
-          Order #{displayOrderId} is paid. Now attach the actual destination
-          that each garment should open.
+          Order #{displayOrderId} is paid. Now choose how you want to be discovered.
         </p>
       </div>
 
-      <div className="mb-8 rounded-[1.35rem] border border-border bg-card/75 p-5">
-        <p className="nav-text">Order contact</p>
-        <p className="mt-3 text-sm leading-7 text-muted-foreground">
-          We use this email for intake follow-up and fulfillment communication.
-        </p>
+      <div className="mb-16 rounded-[1.35rem] border border-border bg-card/75 p-5">
+        <p className="nav-text text-[10px]">Order contact</p>
         <input
           type="email"
           value={contactEmail}
           onChange={(e) => setContactEmail(e.target.value)}
           placeholder="you@example.com"
-          className="mt-4 w-full border border-border bg-background px-4 py-4 text-sm focus:outline-none focus:border-foreground"
+          className="mt-4 w-full border-b border-border bg-transparent py-4 text-lg font-serif focus:outline-none focus:border-foreground transition-all"
           disabled={isSubmitting}
           required
         />
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-20">
         {order.items.map((item) => {
           const entry = entries.find((candidate) => candidate.itemKey === item.itemKey);
           if (!entry) return null;
@@ -211,44 +219,91 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
           const requiresBrief = item.tier !== "basic";
 
           return (
-            <section
-              key={item.itemKey}
-              className="rounded-[1.5rem] border border-border bg-background/75 p-6 md:p-8"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="nav-text text-foreground">{item.title}</p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    {item.variantTitle} / {formatTierLabel(item.tier)} tier / Qty{" "}
-                    {item.quantity}
-                  </p>
-                </div>
-                <span className="signal-chip">
-                  {requiresBrief ? "Build brief required" : "Direct link"}
-                </span>
+            <section key={item.itemKey} className="space-y-10 animate-in fade-in duration-700">
+              <div className="flex items-center justify-between border-b border-border pb-4">
+                <p className="nav-text text-foreground">
+                  {item.title} <span className="opacity-40 ml-2">/ {item.variantTitle}</span>
+                </p>
+                <span className="signal-chip">{formatTierLabel(item.tier)} Tier</span>
               </div>
 
-              <div className="mt-6 space-y-5">
+              {/* The Choice Ritual */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => updateEntry(item.itemKey, "mode", "direct")}
+                  className={`p-8 text-left border transition-all duration-500 group ${
+                    entry.mode === "direct"
+                      ? "border-foreground bg-foreground/5"
+                      : "border-border hover:border-foreground/30"
+                  }`}
+                >
+                  <p className="nav-text text-[10px] mb-3 opacity-40">Option 01</p>
+                  <h4 className="display text-2xl mb-3 font-medium">Direct Link</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    The QR code will point directly to your provided URL (e.g. LinkedIn). 
+                    Fast, reliable, and permanent.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => updateEntry(item.itemKey, "mode", "bridge")}
+                  className={`p-8 text-left border transition-all duration-500 group relative overflow-hidden ${
+                    entry.mode === "bridge"
+                      ? "border-foreground bg-foreground/5 shadow-[0_0_40px_-15px_rgba(232,224,200,0.2)]"
+                      : "border-border hover:border-foreground/30"
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <p className="nav-text text-[10px] opacity-40">Option 02</p>
+                    <span className="text-[9px] uppercase tracking-tighter text-primary bg-primary/10 px-2 py-0.5">Recommended</span>
+                  </div>
+                  <h4 className="display text-2xl mb-3 font-medium">QONNECT Bridge</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    A future-proof redirect (qonnect.ai/b/slug). 
+                    Swap your destination URL anytime. Includes scan analytics.
+                  </p>
+                </button>
+              </div>
+
+              {/* Data Input Area */}
+              <div className="bg-foreground/[0.02] border border-border/50 p-8 md:p-12 space-y-10">
                 <div className="relative group">
-                  <div className="pointer-events-none absolute inset-y-0 left-5 flex items-center text-muted-foreground transition-colors group-focus-within:text-foreground">
-                    <Globe className="h-4 w-4" />
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center text-muted-foreground group-focus-within:text-foreground transition-colors">
+                    <Globe className="w-5 h-5" />
                   </div>
                   <input
                     type="url"
                     placeholder="https://yourworld.com"
                     value={entry.targetUrl}
-                    onChange={(e) =>
-                      updateEntry(item.itemKey, "targetUrl", e.target.value)
-                    }
-                    className="w-full border border-border bg-background py-5 pl-14 pr-5 text-lg focus:outline-none focus:border-foreground placeholder:text-muted-foreground/40"
-                    disabled={isSubmitting}
+                    onChange={(e) => updateEntry(item.itemKey, "targetUrl", e.target.value)}
+                    className="w-full bg-transparent border-b border-border py-6 pl-12 pr-4 text-2xl font-serif focus:outline-none focus:border-foreground transition-all placeholder:text-muted-foreground/10"
                     required
                   />
+                  <label className="absolute -top-6 left-0 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Destination URL</label>
                 </div>
 
-                <div className="grid gap-5 md:grid-cols-[220px_1fr]">
+                {entry.mode === "bridge" && (
+                  <div className="relative group pt-4 animate-in slide-in-from-top-4 duration-700">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center text-primary/40 font-mono text-lg pt-4">
+                      qonnect.ai/b/
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="username"
+                      value={entry.slug}
+                      onChange={(e) => updateEntry(item.itemKey, "slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                      className="w-full bg-transparent border-b border-border py-6 pl-32 pr-4 text-2xl font-serif focus:outline-none focus:border-primary/50 transition-all placeholder:text-muted-foreground/10"
+                      required={entry.mode === "bridge"}
+                    />
+                    <label className="absolute top-0 left-0 text-[10px] uppercase tracking-[0.22em] text-primary/60 font-medium">Choose your unique slug</label>
+                  </div>
+                )}
+
+                <div className="grid gap-10 md:grid-cols-[250px_1fr] pt-4">
                   <div>
-                    <label className="mb-2 block text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                    <label className="mb-3 block text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                       Destination type
                     </label>
                     <select
@@ -256,19 +311,19 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
                       onChange={(e) =>
                         updateEntry(item.itemKey, "destinationType", e.target.value)
                       }
-                      className="w-full border border-border bg-background px-4 py-4 text-sm focus:outline-none focus:border-foreground"
+                      className="w-full border-b border-border bg-transparent py-4 text-sm focus:outline-none focus:border-foreground appearance-none cursor-pointer"
                       disabled={isSubmitting}
                     >
-                      <option value="linkedin">LinkedIn</option>
-                      <option value="portfolio">Portfolio</option>
-                      <option value="linktree">Linktree</option>
-                      <option value="custom-page">Custom page</option>
-                      <option value="other">Other</option>
+                      <option value="linkedin">LinkedIn Profile</option>
+                      <option value="portfolio">Portfolio Site</option>
+                      <option value="linktree">Linktree / Bio-link</option>
+                      <option value="custom-page">Custom QONNECT Page</option>
+                      <option value="other">Other Destination</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                    <label className="mb-3 block text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                       {requiresBrief ? "Build brief" : "Optional notes"}
                     </label>
                     <textarea
@@ -278,10 +333,10 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
                       }
                       placeholder={
                         requiresBrief
-                          ? "Describe what the page should communicate, include tone, sections, assets, and any references."
-                          : "Optional context for this QR destination."
+                          ? "Describe your vision for this page. Include tone, key sections, and any specific assets we should use."
+                          : "Optional context for our fulfillment team."
                       }
-                      className="min-h-32 w-full border border-border bg-background px-4 py-4 text-sm leading-7 focus:outline-none focus:border-foreground placeholder:text-muted-foreground/40"
+                      className="min-h-32 w-full border border-border bg-background/50 px-6 py-6 text-base leading-7 focus:outline-none focus:border-foreground placeholder:text-muted-foreground/20 italic"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -300,7 +355,7 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
             <>
-              Save intake and continue{" "}
+              Confirm Identity & Start Fulfillment{" "}
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </>
           )}

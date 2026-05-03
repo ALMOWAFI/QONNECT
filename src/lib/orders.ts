@@ -23,6 +23,31 @@ export interface OrderIntakeSummary {
   updatedAt: string;
 }
 
+export interface OrderStatusSummary {
+  payment: "pending" | "paid" | "failed" | "expired";
+  intake: "pending" | "submitted";
+  production:
+    | "awaiting_payment"
+    | "awaiting_intake"
+    | "ready_for_qr"
+    | "ready_for_supplier"
+    | "fulfilled"
+    | "on_hold";
+  overall:
+    | "draft"
+    | "awaiting_intake"
+    | "in_preparation"
+    | "fulfilled"
+    | "needs_attention";
+}
+
+export interface OrderTimelineEvent {
+  type: string;
+  label: string;
+  description: string;
+  at: string;
+}
+
 export interface OrderSummary {
   sessionId: string;
   shortOrderId: string;
@@ -30,6 +55,10 @@ export interface OrderSummary {
   customerEmail: string | null;
   items: OrderItemSummary[];
   intake: OrderIntakeSummary | null;
+  status: OrderStatusSummary;
+  timeline: OrderTimelineEvent[];
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 interface IntakeSubmissionPayload {

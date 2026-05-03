@@ -43,3 +43,25 @@ export async function saveOrderRecord(nextRecord) {
   await writeOrders(orders);
   return nextRecord;
 }
+
+export async function findDestinationBySlug(slug) {
+  const orders = await readOrders();
+  for (const order of orders) {
+    if (order.intake?.entries) {
+      const entry = order.intake.entries.find((e) => e.slug === slug);
+      if (entry) return entry.targetUrl;
+    }
+  }
+  return null;
+}
+
+export async function isSlugAvailable(slug, currentSessionId) {
+  const orders = await readOrders();
+  for (const order of orders) {
+    if (order.intake?.entries) {
+      const entry = order.intake.entries.find((e) => e.slug === slug);
+      if (entry && order.sessionId !== currentSessionId) return false;
+    }
+  }
+  return true;
+}
