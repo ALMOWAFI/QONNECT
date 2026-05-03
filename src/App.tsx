@@ -10,6 +10,7 @@ import Product from "./pages/Product";
 import Success from "./pages/Success";
 import Bridge from "./pages/Bridge";
 import Admin from "./pages/Admin";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { useCartSync } from "./hooks/useCartSync";
 
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
       { path: "/success", element: <Success /> },
       { path: "/b/:slug", element: <Bridge /> },
       { path: "/admin", element: <Admin /> },
+      { path: "/login", element: <Login /> },
       { path: "*", element: <NotFound /> },
     ],
   },

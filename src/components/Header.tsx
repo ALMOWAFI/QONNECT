@@ -5,6 +5,7 @@ const links = [
   { href: "/#editions", label: "Editions" },
   { href: "/#concept", label: "Concept" },
   { href: "/#shop", label: "Shop" },
+  { href: "/login", label: "Members" },
 ];
 
 const Header = () => {
