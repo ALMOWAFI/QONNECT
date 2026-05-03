@@ -292,7 +292,28 @@ app.get('/api/resolve-slug/:slug', async (req, res) => {
   }
 });
 
-app.get('*', (req, res) => {
+app.post('/api/auth/claim-bridge', async (req, res) => {
+  const { email } = req.body;
+  const { createClient } = await import('@supabase/supabase-js');
+  
+  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${req.headers.origin}/admin`, // For now, or a user dash
+      }
+    });
+
+    if (error) throw error;
+    res.json({ success: true, message: 'Magic link sent to your email.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 

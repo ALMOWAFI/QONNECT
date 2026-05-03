@@ -165,10 +165,10 @@ const Success = () => {
               </p>
             </div>
 
-            <div className="relative z-10 border border-border bg-background p-8 shadow-2xl md:p-12 lg:p-20">
+            <div className="relative z-10 border border-border bg-background shadow-2xl p-8 md:p-12 lg:p-20">
               {loading ? (
                 <div className="flex min-h-64 items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
                 </div>
               ) : error ? (
                 <div className="mx-auto max-w-2xl text-center">
@@ -178,7 +178,37 @@ const Success = () => {
                   </p>
                 </div>
               ) : order ? (
-                <IntakeForm order={order} onSubmitted={setOrder} />
+                <>
+                  <IntakeForm order={order} onSubmitted={setOrder} />
+
+                  {order.intake && (
+                    <div className="mt-16 border-t border-border/50 pt-16 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                      <p className="eyebrow text-primary mb-4">Final Step: Secure the Bridge</p>
+                      <h3 className="display text-2xl mb-6">Want to edit your link later?</h3>
+                      <p className="text-muted-foreground mb-10 max-w-md mx-auto italic font-serif text-lg">
+                        Claim your digital identity now to track scans and swap your destination URL anytime.
+                      </p>
+                      <button 
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/api/auth/claim-bridge', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ email: order.customerEmail })
+                            });
+                            if (!res.ok) throw new Error();
+                            toast.success("Magic link sent! Check your email to secure your world.");
+                          } catch {
+                            toast.error("Could not trigger sign-up. Try again later.");
+                          }
+                        }}
+                        className="btn-transparent !px-12 group"
+                      >
+                        Claim My Identity <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
+                      </button>
+                    </div>
+                  )}
+                </>
               ) : null}
             </div>
 

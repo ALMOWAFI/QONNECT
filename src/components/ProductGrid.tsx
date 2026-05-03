@@ -7,6 +7,80 @@ import {
 import { ProductCard } from "./ProductCard";
 import { Loader2 } from "lucide-react";
 
+import techImage from "@/assets/tech-edition.png";
+import medImage from "@/assets/med-edition.png";
+import heroImage from "@/assets/hero-hoodie.png";
+
+// Flagship Products (Hard-coded fallback)
+const FLAGSHIP_PRODUCTS: ShopifyProduct[] = [
+  {
+    node: {
+      id: "gid://shopify/Product/flagship-tech",
+      title: "QONNECT Hoodie: Robotics Edition",
+      handle: "robotics-edition",
+      description: "A heavyweight hoodie designed for builders. Features the 'Digital Bridge' back print with technical-luxury aesthetics.",
+      priceRange: { minVariantPrice: { amount: "150.00", currencyCode: "USD" } },
+      images: { edges: [{ node: { url: techImage, altText: "Robotics Edition Hoodie" } }] },
+      variants: {
+        edges: [{
+          node: {
+            id: "gid://shopify/ProductVariant/v-tech",
+            title: "Default Title",
+            price: { amount: "150.00", currencyCode: "USD" },
+            availableForSale: true,
+            selectedOptions: [{ name: "Title", value: "Default Title" }]
+          }
+        }]
+      },
+      options: [{ name: "Size", values: ["S", "M", "L", "XL"] }]
+    }
+  },
+  {
+    node: {
+      id: "gid://shopify/Product/flagship-med",
+      title: "QONNECT Hoodie: Medicine Edition",
+      handle: "medicine-edition",
+      description: "Created for those who care. The Medicine edition features a pulse-inspired back print and a calming high-end finish.",
+      priceRange: { minVariantPrice: { amount: "150.00", currencyCode: "USD" } },
+      images: { edges: [{ node: { url: medImage, altText: "Medicine Edition Hoodie" } }] },
+      variants: {
+        edges: [{
+          node: {
+            id: "gid://shopify/ProductVariant/v-med",
+            title: "Default Title",
+            price: { amount: "150.00", currencyCode: "USD" },
+            availableForSale: true,
+            selectedOptions: [{ name: "Title", value: "Default Title" }]
+          }
+        }]
+      },
+      options: [{ name: "Size", values: ["S", "M", "L", "XL"] }]
+    }
+  },
+  {
+    node: {
+      id: "gid://shopify/Product/flagship-business",
+      title: "QONNECT Hoodie: Business Edition",
+      handle: "business-edition",
+      description: "Quiet ambition, direct access. The Business edition is for founders who want their scan to open a sharper pitch than a business card.",
+      priceRange: { minVariantPrice: { amount: "165.00", currencyCode: "USD" } },
+      images: { edges: [{ node: { url: heroImage, altText: "Business Edition Hoodie" } }] },
+      variants: {
+        edges: [{
+          node: {
+            id: "gid://shopify/ProductVariant/v-biz",
+            title: "Default Title",
+            price: { amount: "165.00", currencyCode: "USD" },
+            availableForSale: true,
+            selectedOptions: [{ name: "Title", value: "Default Title" }]
+          }
+        }]
+      },
+      options: [{ name: "Size", values: ["S", "M", "L", "XL"] }]
+    }
+  }
+];
+
 const ProductGrid = () => {
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,11 +93,20 @@ const ProductGrid = () => {
           first: 24,
           query: null,
         });
-        if (!cancelled && data) {
-          setProducts(data?.data?.products?.edges || []);
+        if (!cancelled) {
+          const shopifyProducts = data?.data?.products?.edges || [];
+          // Merge Shopify products with flagship products, removing duplicates by handle
+          const allProducts = [...FLAGSHIP_PRODUCTS];
+          shopifyProducts.forEach((sp: ShopifyProduct) => {
+            if (!allProducts.find(p => p.node.handle === sp.node.handle)) {
+              allProducts.push(sp);
+            }
+          });
+          setProducts(allProducts);
         }
       } catch (err) {
-        console.error(err);
+        console.error("Shopify fetch failed, using flagship fallbacks only.", err);
+        if (!cancelled) setProducts(FLAGSHIP_PRODUCTS);
       } finally {
         if (!cancelled) setLoading(false);
       }

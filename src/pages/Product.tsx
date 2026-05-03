@@ -6,6 +6,10 @@ import Footer from "@/components/Footer";
 import { PRODUCT_BY_HANDLE_QUERY, storefrontApiRequest } from "@/lib/shopify";
 import { useCartStore } from "@/stores/cartStore";
 
+import techImage from "@/assets/tech-edition.png";
+import medImage from "@/assets/med-edition.png";
+import heroImage from "@/assets/hero-hoodie.png";
+
 interface ProductDetail {
   id: string;
   title: string;
@@ -26,6 +30,70 @@ interface ProductDetail {
   };
   options: Array<{ name: string; values: string[] }>;
 }
+
+// Local Registry (Matches ProductGrid fallback)
+const FLAGSHIP_REGISTRY: Record<string, ProductDetail> = {
+  "robotics-edition": {
+    id: "gid://shopify/Product/flagship-tech",
+    title: "QONNECT Hoodie: Robotics Edition",
+    handle: "robotics-edition",
+    description: "A heavyweight hoodie designed for builders. Features the 'Digital Bridge' back print with technical-luxury aesthetics.\n\n· 450 GSM Heavyweight Cotton\n· Oversized unisex fit\n· Custom QR print on the back\n· High quality print",
+    priceRange: { minVariantPrice: { amount: "150.00", currencyCode: "USD" } },
+    images: { edges: [{ node: { url: techImage, altText: "Robotics Edition Hoodie" } }] },
+    variants: {
+      edges: [{
+        node: {
+          id: "gid://shopify/ProductVariant/v-tech",
+          title: "Default Title",
+          price: { amount: "150.00", currencyCode: "USD" },
+          availableForSale: true,
+          selectedOptions: [{ name: "Title", value: "Default Title" }]
+        }
+      }]
+    },
+    options: [{ name: "Size", values: ["S", "M", "L", "XL"] }]
+  },
+  "medicine-edition": {
+    id: "gid://shopify/Product/flagship-med",
+    title: "QONNECT Hoodie: Medicine Edition",
+    handle: "medicine-edition",
+    description: "Created for those who care. The Medicine edition features a pulse-inspired back print and a calming high-end finish.\n\n· 450 GSM Heavyweight Cotton\n· Oversized unisex fit\n· Custom QR print on the back\n· High quality print",
+    priceRange: { minVariantPrice: { amount: "150.00", currencyCode: "USD" } },
+    images: { edges: [{ node: { url: medImage, altText: "Medicine Edition Hoodie" } }] },
+    variants: {
+      edges: [{
+        node: {
+          id: "gid://shopify/ProductVariant/v-med",
+          title: "Default Title",
+          price: { amount: "150.00", currencyCode: "USD" },
+          availableForSale: true,
+          selectedOptions: [{ name: "Title", value: "Default Title" }]
+        }
+      }]
+    },
+    options: [{ name: "Size", values: ["S", "M", "L", "XL"] }]
+  },
+  "business-edition": {
+    id: "gid://shopify/Product/flagship-business",
+    title: "QONNECT Hoodie: Business Edition",
+    handle: "business-edition",
+    description: "Quiet ambition, direct access. The Business edition is for founders who want their scan to open a sharper pitch than a business card.\n\n· 450 GSM Heavyweight Cotton\n· Oversized unisex fit\n· Custom QR print on the back\n· High quality print",
+    priceRange: { minVariantPrice: { amount: "165.00", currencyCode: "USD" } },
+    images: { edges: [{ node: { url: heroImage, altText: "Business Edition Hoodie" } }] },
+    variants: {
+      edges: [{
+        node: {
+          id: "gid://shopify/ProductVariant/v-biz",
+          title: "Default Title",
+          price: { amount: "165.00", currencyCode: "USD" },
+          availableForSale: true,
+          selectedOptions: [{ name: "Title", value: "Default Title" }]
+        }
+      }]
+    },
+    options: [{ name: "Size", values: ["S", "M", "L", "XL"] }]
+  }
+};
 
 const Product = () => {
   const { handle } = useParams<{ handle: string }>();
@@ -54,13 +122,22 @@ const Product = () => {
         const data = await storefrontApiRequest(PRODUCT_BY_HANDLE_QUERY, {
           handle,
         });
-        if (!cancelled && data) {
+        if (!cancelled && data?.data?.product) {
           const fetchedProduct = data?.data?.product;
           setProduct(fetchedProduct);
           setSelectedVariantId(fetchedProduct?.variants?.edges?.[0]?.node?.id || null);
+        } else if (!cancelled && FLAGSHIP_REGISTRY[handle]) {
+          const fetchedProduct = FLAGSHIP_REGISTRY[handle];
+          setProduct(fetchedProduct);
+          setSelectedVariantId(fetchedProduct.variants.edges[0].node.id);
         }
       } catch (err) {
-        console.error(err);
+        console.error("Shopify fetch failed, checking local registry.", err);
+        if (!cancelled && FLAGSHIP_REGISTRY[handle]) {
+          const fetchedProduct = FLAGSHIP_REGISTRY[handle];
+          setProduct(fetchedProduct);
+          setSelectedVariantId(fetchedProduct.variants.edges[0].node.id);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
