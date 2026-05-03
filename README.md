@@ -1,73 +1,65 @@
-# Welcome to your Lovable project
+# QONNECT — Wear Your World
 
-## Project info
+**QONNECT** is a premium custom hoodie brand where fashion meets networking. Every hoodie is a unique piece of tech-integrated apparel, featuring a scannable QR code on the back that links directly to the owner's professional world (LinkedIn, Portfolio, Linktree, or a custom-built landing page).
 
-**URL**: https://lovable.dev/projects/a37d1d0d-556a-4b16-af20-d0385b80500f
+## 🚀 The Concept: "The Bridge"
+The hoodie acts as a living business card. A conversation before the handshake. We bridge the physical and digital worlds for professionals who build, heal, and create.
 
-## How can I edit this code?
+### Current Editions
+*   **Robotics & Tech:** For builders and engineers.
+*   **Medicine:** For those who care and heal.
+*   **Business:** (Upcoming) For founders and operators.
 
-There are several ways of editing your application.
+---
 
-**Use Lovable**
+## 💎 Service Tiers
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/a37d1d0d-556a-4b16-af20-d0385b80500f) and start prompting.
+| Tier | Description |
+| :--- | :--- |
+| **Basic** | You provide the link, we generate the unique QR and print the hoodie. |
+| **Standard** | We build you a personalized Linktree-style page, then generate the QR. |
+| **Premium** | We build a full custom landing page with your own domain, then generate the QR. |
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## 🛠 Tech Stack
+*   **Frontend:** React, Vite, TypeScript, Tailwind CSS, shadcn/ui.
+*   **E-commerce:** Shopify Storefront API (Headless).
+*   **Deployment:** Dockerized for AWS App Runner.
+*   **Payment:** Stripe (Integration Pending).
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 💼 Business Model: "Order-by-Order"
+Unlike traditional apparel brands, QONNECT holds **zero inventory**. 
+1.  **Unique Identity:** Every single hoodie is custom-generated because every QR code is unique.
+2.  **Print-on-Demand:** We have a per-order agreement with our supplier. 
+3.  **Direct Fulfillment:** Once a QR is generated and an order is placed with the supplier, it ships directly to the customer.
 
-Follow these steps:
+---
+
+## 🤝 Contributing
+We welcome contributors who want to help build the future of professional apparel. 
+
+### Roadmap
+- [ ] **Stripe Integration:** Replacing/Complementing Shopify checkout for service tier handling.
+- [ ] **QR Generation Pipeline:** Automating the creation of unique QR assets per order.
+- [ ] **Tier Landing Pages:** Building the templates for Standard and Premium tiers.
+- [ ] **Supplier Automation:** Integrating the backend to forward orders directly to the printer.
+
+---
+
+## 🛠 Local Development
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+# Install dependencies
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Set up environment variables
+cp .env.example .env
+
+# Run development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/a37d1d0d-556a-4b16-af20-d0385b80500f) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+See [BUSINESS.md](./BUSINESS.md) for a deep dive into the operational workflow.

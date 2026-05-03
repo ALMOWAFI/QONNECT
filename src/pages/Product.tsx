@@ -32,8 +32,15 @@ const Product = () => {
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [selectedTier, setSelectedTier] = useState<"basic" | "standard" | "premium">("basic");
   const addItem = useCartStore((s) => s.addItem);
   const isLoading = useCartStore((s) => s.isLoading);
+
+  const tiers = [
+    { id: "basic", name: "Basic", price: 0, desc: "QR links to your provided URL." },
+    { id: "standard", name: "Standard", price: 20, desc: "We build your Linktree-style page." },
+    { id: "premium", name: "Premium", price: 50, desc: "Full custom landing page + domain." },
+  ] as const;
 
   useEffect(() => {
     if (!handle) return;
@@ -61,6 +68,8 @@ const Product = () => {
 
   const handleAdd = async () => {
     if (!product || !selectedVariant) return;
+    
+    // In a real Stripe implementation, we would handle the tier upcharge here or in the cart
     await addItem({
       product: {
         node: {
@@ -68,10 +77,16 @@ const Product = () => {
         },
       },
       variantId: selectedVariant.id,
-      variantTitle: selectedVariant.title,
-      price: selectedVariant.price,
+      variantTitle: `${selectedVariant.title} (${selectedTier.toUpperCase()})`,
+      price: {
+        ...selectedVariant.price,
+        amount: (parseFloat(selectedVariant.price.amount) + tiers.find(t => t.id === selectedTier)!.price).toString()
+      },
       quantity: 1,
-      selectedOptions: selectedVariant.selectedOptions || [],
+      selectedOptions: [
+        ...(selectedVariant.selectedOptions || []),
+        { name: "Service Tier", value: selectedTier }
+      ],
     });
   };
 
@@ -117,16 +132,49 @@ const Product = () => {
 
               <div className="md:sticky md:top-28 md:self-start">
                 <h1 className="display-md font-medium">{product.title}</h1>
-                <p className="mt-3 text-lg text-muted-foreground">
-                  {product.priceRange.minVariantPrice.currencyCode}{" "}
-                  {parseFloat(product.priceRange.minVariantPrice.amount).toFixed(2)}
-                </p>
+                <div className="mt-3 flex items-baseline gap-2">
+                  <p className="text-lg text-muted-foreground">
+                    {product.priceRange.minVariantPrice.currencyCode}{" "}
+                    {(parseFloat(product.priceRange.minVariantPrice.amount) + tiers.find(t => t.id === selectedTier)!.price).toFixed(2)}
+                  </p>
+                  {selectedTier !== "basic" && (
+                    <span className="text-xs text-primary uppercase tracking-tighter">
+                      + Tier Upgrade
+                    </span>
+                  )}
+                </div>
 
                 {product.description && (
                   <p className="mt-8 text-base leading-relaxed text-muted-foreground whitespace-pre-line">
                     {product.description}
                   </p>
                 )}
+
+                {/* Tier Selection */}
+                <div className="mt-10 pt-10 border-t border-border">
+                  <p className="nav-text mb-4">Service Tier</p>
+                  <div className="grid grid-cols-1 gap-3">
+                    {tiers.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setSelectedTier(t.id as any)}
+                        className={`p-4 text-left border transition-all ${
+                          selectedTier === t.id
+                            ? "border-foreground bg-foreground/5 shadow-sm"
+                            : "border-border hover:border-foreground/50"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-medium uppercase tracking-widest text-xs">{t.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {t.price > 0 ? `+$${t.price}` : "Included"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{t.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 {product.variants.edges.length > 1 && (
                   <div className="mt-8">
