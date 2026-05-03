@@ -13,8 +13,43 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-app.use(express.json());
 app.use(express.static(path.join(__dirname, '../dist')));
+
+// Webhook endpoint needs raw body for signature verification
+app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+    console.error(`Webhook Error: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle the event
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const { saveOrderRecord, getOrderRecord } = await import('./orderStore.js');
+    
+    const record = await getOrderRecord(session.id);
+    if (record) {
+      await saveOrderRecord({
+        ...record,
+        status: 'intake_required', // Payment is done, now we wait for user to give URL
+        paymentStatus: 'paid',
+        contactEmail: session.customer_details?.email || record.contactEmail
+      });
+      console.log(`Order ${session.id} marked as PAID.`);
+    }
+  }
+
+  res.json({ received: true });
+});
+
+app.use(express.json()); // Put JSON back for subsequent routes
 
 function buildShortOrderId(sessionId) {
   return sessionId.slice(-6).toUpperCase();
