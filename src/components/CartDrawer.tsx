@@ -9,12 +9,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ShoppingBag, Minus, Plus, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { ShoppingBag, Minus, Plus, Trash2, CreditCard, Loader2 } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
+import { getStripe, createCheckoutSession } from "@/lib/stripe";
+import { toast } from "sonner";
 
 export const CartDrawer = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { items, isLoading, isSyncing, updateQuantity, removeItem, getCheckoutUrl, syncCart } =
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
+  const { items, isLoading, updateQuantity, removeItem } =
     useCartStore();
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = items.reduce(
@@ -22,15 +25,26 @@ export const CartDrawer = () => {
     0
   );
 
-  useEffect(() => {
-    if (isOpen) syncCart();
-  }, [isOpen, syncCart]);
+  const handleCheckout = async () => {
+    setIsCheckoutLoading(true);
+    try {
+      const stripe = await getStripe();
+      if (!stripe) throw new Error("Stripe failed to load");
 
-  const handleCheckout = () => {
-    const checkoutUrl = getCheckoutUrl();
-    if (checkoutUrl) {
-      window.open(checkoutUrl, "_blank");
-      setIsOpen(false);
+      const { id: sessionId } = await createCheckoutSession(items);
+      
+      const { error } = await stripe.redirectToCheckout({
+        sessionId,
+      });
+
+      if (error) {
+        toast.error(error.message || "Checkout failed");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Checkout service unavailable. Please try again later.");
+    } finally {
+      setIsCheckoutLoading(false);
     }
   };
 
@@ -95,13 +109,13 @@ export const CartDrawer = () => {
                         <p className="text-xs text-muted-foreground mt-1">
                           {item.selectedOptions.map((o) => o.value).join(" · ")}
                         </p>
-                        <p className="text-sm mt-2">
+                        <p className="text-sm mt-2 font-medium">
                           {item.price.currencyCode} {parseFloat(item.price.amount).toFixed(2)}
                         </p>
                         <div className="flex items-center gap-3 mt-3">
                           <button
                             onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
-                            className="w-6 h-6 border border-border flex items-center justify-center hover:border-foreground"
+                            className="w-6 h-6 border border-border flex items-center justify-center hover:border-foreground active:scale-90 transition-transform"
                             aria-label="Decrease quantity"
                           >
                             <Minus className="h-3 w-3" />
@@ -109,7 +123,7 @@ export const CartDrawer = () => {
                           <span className="text-sm tabular-nums">{item.quantity}</span>
                           <button
                             onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
-                            className="w-6 h-6 border border-border flex items-center justify-center hover:border-foreground"
+                            className="w-6 h-6 border border-border flex items-center justify-center hover:border-foreground active:scale-90 transition-transform"
                             aria-label="Increase quantity"
                           >
                             <Plus className="h-3 w-3" />
@@ -118,7 +132,7 @@ export const CartDrawer = () => {
                       </div>
                       <button
                         onClick={() => removeItem(item.variantId)}
-                        className="text-muted-foreground hover:text-foreground"
+                        className="text-muted-foreground hover:text-foreground active:scale-90 transition-transform"
                         aria-label="Remove item"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -135,18 +149,18 @@ export const CartDrawer = () => {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Shipping & taxes calculated at checkout.
+                  Secure checkout powered by Stripe.
                 </p>
                 <button
                   onClick={handleCheckout}
                   className="btn-filled w-full"
-                  disabled={items.length === 0 || isLoading || isSyncing}
+                  disabled={items.length === 0 || isLoading || isCheckoutLoading}
                 >
-                  {isLoading || isSyncing ? (
+                  {isCheckoutLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
-                      Checkout <ExternalLink className="w-3.5 h-3.5" />
+                      Pay with Stripe <CreditCard className="ml-2 w-3.5 h-3.5" />
                     </>
                   )}
                 </button>
