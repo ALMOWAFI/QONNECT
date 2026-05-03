@@ -12,6 +12,18 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
+export async function verifyDatabase() {
+  if (!supabase) return;
+  console.log('🏛️ Verifying Database integrity...');
+  const tables = ['profiles', 'bridges', 'orders', 'scans'];
+  for (const table of tables) {
+    const { error } = await supabase.from(table).select('id').limit(1);
+    if (error && error.code === '42P01') {
+      console.warn(`⚠️ Warning: Table "${table}" not found. Ensure SQL schema is applied.`);
+    }
+  }
+}
+
 export async function getOrderRecord(sessionId) {
   if (!supabase) return null;
 

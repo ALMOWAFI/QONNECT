@@ -259,6 +259,8 @@ app.get(/.*/, (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  const { verifyDatabase } = await import('./orderStore.js');
+  await verifyDatabase();
   console.log(`🚀 QONNECT Engine live on port ${PORT}`);
 });
