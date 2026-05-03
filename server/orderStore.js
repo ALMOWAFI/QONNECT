@@ -46,6 +46,8 @@ export async function saveOrderRecord(record) {
     customer_email: record.contactEmail,
     items: record.items,
     intake_data: record.intake,
+    status: record.status || 'pending_payment',
+    payment_status: record.paymentStatus || 'unpaid',
     updated_at: new Date().toISOString(),
   };
 

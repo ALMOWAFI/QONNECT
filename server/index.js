@@ -5,23 +5,21 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getOrderRecord, saveOrderRecord, isSlugAvailable, readOrders, findDestinationBySlug } from './orderStore.js';
 
-dotenv.config();
-
+// Explicitly load .env from the root directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-app.use(express.static(path.join(__dirname, '../dist')));
-
 // Webhook endpoint needs raw body for signature verification
+// This MUST be before any other middleware that parses the body
 app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   let event;
-
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err) {
@@ -29,27 +27,25 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle the event
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    const { saveOrderRecord, getOrderRecord } = await import('./orderStore.js');
-    
     const record = await getOrderRecord(session.id);
     if (record) {
       await saveOrderRecord({
         ...record,
-        status: 'intake_required', // Payment is done, now we wait for user to give URL
+        status: 'intake_required',
         paymentStatus: 'paid',
         contactEmail: session.customer_details?.email || record.contactEmail
       });
       console.log(`Order ${session.id} marked as PAID.`);
     }
   }
-
   res.json({ received: true });
 });
 
-app.use(express.json()); // Put JSON back for subsequent routes
+// Regular middlewares
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '../dist')));
 
 function buildShortOrderId(sessionId) {
   return sessionId.slice(-6).toUpperCase();
@@ -109,7 +105,8 @@ async function buildOrderSummary(sessionId) {
   return {
     sessionId: record.sessionId,
     shortOrderId: buildShortOrderId(record.sessionId),
-    paymentStatus: stripeSnapshot.paymentStatus,
+    paymentStatus: stripeSnapshot.paymentStatus || record.paymentStatus,
+    status: record.status || (stripeSnapshot.paymentStatus === 'paid' ? 'intake_required' : 'pending_payment'),
     customerEmail: stripeSnapshot.customerEmail || record.contactEmail || null,
     items: record.items,
     intake: record.intake || null,
@@ -118,8 +115,13 @@ async function buildOrderSummary(sessionId) {
 
 app.post('/api/create-checkout-session', async (req, res) => {
   const { items } = req.body;
+  console.log(`🛒 Creating Checkout for ${items?.length} items...`);
 
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error("STRIPE_SECRET_KEY is missing. Check your environment variables.");
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: items.map((item) => ({
@@ -130,7 +132,9 @@ app.post('/api/create-checkout-session', async (req, res) => {
             description: item.selectedOptions
               .map((option) => `${option.name}: ${option.value}`)
               .join(' / '),
-            images: item.product.node.images.edges.map((edge) => edge.node.url),
+            images: item.product.node.images.edges
+              .map((edge) => edge.node.url)
+              .filter(url => url && (url.startsWith('http') || url.startsWith('//'))),
           },
           unit_amount: Math.round(parseFloat(item.price.amount) * 100),
         },
@@ -138,19 +142,13 @@ app.post('/api/create-checkout-session', async (req, res) => {
       })),
       metadata: {
         item_count: String(items.reduce((sum, item) => sum + item.quantity, 0)),
-        tiers: [...new Set(
-          items.map(
-            (item) =>
-              item.selectedOptions.find((option) => option.name === 'Service Tier')?.value ||
-              'basic'
-          )
-        )].join(','),
       },
       mode: 'payment',
       success_url: `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.origin}/?cart=open`,
     });
 
+    // Save order record immediately as "Pending"
     await saveOrderRecord({
       sessionId: session.id,
       createdAt: new Date().toISOString(),
@@ -159,21 +157,17 @@ app.post('/api/create-checkout-session', async (req, res) => {
       intake: null,
     });
 
+    console.log(`✅ Stripe Session Created: ${session.id}`);
     res.json({ id: session.id });
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    console.error('❌ Error creating checkout session:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
 app.get('/api/orders/:sessionId', async (req, res) => {
   const summary = await buildOrderSummary(req.params.sessionId);
-
-  if (!summary) {
-    res.status(404).json({ error: 'Order not found for this checkout session.' });
-    return;
-  }
-
+  if (!summary) return res.status(404).json({ error: 'Order not found' });
   res.json(summary);
 });
 
@@ -182,68 +176,32 @@ app.post('/api/orders/:sessionId/intake', async (req, res) => {
   const { contactEmail, entries } = req.body;
   const record = await getOrderRecord(sessionId);
 
-  if (!record) {
-    res.status(404).json({ error: 'Order not found for this checkout session.' });
-    return;
-  }
+  if (!record) return res.status(404).json({ error: 'Order not found' });
 
-  if (!contactEmail || !String(contactEmail).includes('@')) {
-    res.status(400).json({ error: 'A valid contact email is required.' });
-    return;
-  }
-
-  if (!Array.isArray(entries) || entries.length === 0) {
-    res.status(400).json({ error: 'At least one intake entry is required.' });
-    return;
-  }
-
+  // Simple validation
   const normalizedEntries = [];
   for (const entry of entries) {
     const mode = entry.mode || 'direct';
     const slug = mode === 'bridge' ? String(entry.slug || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '') : null;
     
-    if (mode === 'bridge') {
-      if (!slug) {
-        res.status(400).json({ error: `A unique slug is required for the QONNECT Bridge on one of your items.` });
-        return;
-      }
+    if (mode === 'bridge' && !slug) {
+      return res.status(400).json({ error: 'Bridge slug is required.' });
+    }
+
+    if (slug) {
       const available = await isSlugAvailable(slug, sessionId);
-      if (!available) {
-        res.status(400).json({ error: `The bridge slug '${slug}' is already claimed by another member of the tribe.` });
-        return;
-      }
-    }
-
-    const item = record.items.find((i) => i.itemKey === entry.itemKey);
-    if (!item) {
-      res.status(400).json({ error: `Invalid item reference in intake.` });
-      return;
-    }
-
-    if (!validateUrl(entry.targetUrl)) {
-      res.status(400).json({ error: `Invalid destination URL for ${item.title}.` });
-      return;
-    }
-
-    if (item.tier !== 'basic' && (!entry.brief || entry.brief.length < 20)) {
-      res.status(400).json({
-        error: `${item.title} requires a more complete build brief for the selected tier.`,
-      });
-      return;
+      if (!available) return res.status(400).json({ error: `Slug '${slug}' is taken.` });
     }
 
     normalizedEntries.push({
-      itemKey: entry.itemKey,
+      ...entry,
       mode,
+      slug,
       targetUrl: String(entry.targetUrl || '').trim(),
-      destinationType: String(entry.destinationType || 'other').trim(),
-      brief: String(entry.brief || '').trim(),
-      slug: slug,
     });
   }
 
   const timestamp = new Date().toISOString();
-
   await saveOrderRecord({
     ...record,
     contactEmail,
@@ -259,16 +217,12 @@ app.post('/api/orders/:sessionId/intake', async (req, res) => {
   res.json(summary);
 });
 
-// Admin API
 app.get('/api/admin/orders', async (req, res) => {
   const adminPassword = process.env.ADMIN_PASSWORD;
   const clientPassword = req.headers['x-admin-password'];
-
   if (adminPassword && clientPassword !== adminPassword) {
-    res.status(401).json({ error: 'Unauthorized access to the Command Center.' });
-    return;
+    return res.status(401).json({ error: 'Unauthorized' });
   }
-
   try {
     const orders = await readOrders();
     res.json(orders);
@@ -279,14 +233,10 @@ app.get('/api/admin/orders', async (req, res) => {
 
 app.get('/api/resolve-slug/:slug', async (req, res) => {
   const { slug } = req.params;
-  
   try {
     const destination = await findDestinationBySlug(slug);
-    if (destination) {
-      res.json({ destination });
-    } else {
-      res.status(404).json({ error: 'Bridge not found' });
-    }
+    if (destination) res.json({ destination });
+    else res.status(404).json({ error: 'Not found' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -295,19 +245,10 @@ app.get('/api/resolve-slug/:slug', async (req, res) => {
 app.post('/api/auth/claim-bridge', async (req, res) => {
   const { email } = req.body;
   const { createClient } = await import('@supabase/supabase-js');
-  
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-
   try {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${req.headers.origin}/admin`, // For now, or a user dash
-      }
-    });
-
-    if (error) throw error;
-    res.json({ success: true, message: 'Magic link sent to your email.' });
+    await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${req.headers.origin}/admin` } });
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -319,5 +260,5 @@ app.get(/.*/, (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`🚀 QONNECT Engine live on port ${PORT}`);
 });
