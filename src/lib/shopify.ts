@@ -1,7 +1,8 @@
 import { toast } from "sonner";
 
 export const SHOPIFY_API_VERSION = import.meta.env.VITE_SHOPIFY_API_VERSION || "2025-07";
-export const SHOPIFY_STORE_PERMANENT_DOMAIN = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || "qonnect-l1tyf.myshopify.com";
+export const SHOPIFY_STORE_PERMANENT_DOMAIN =
+  import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || "qonnect-l1tyf.myshopify.com";
 export const SHOPIFY_STOREFRONT_URL = `https://${SHOPIFY_STORE_PERMANENT_DOMAIN}/api/${SHOPIFY_API_VERSION}/graphql.json`;
 export const SHOPIFY_STOREFRONT_TOKEN = import.meta.env.VITE_SHOPIFY_STOREFRONT_TOKEN || "";
 
@@ -98,7 +99,15 @@ export const CART_CREATE_MUTATION = `
       cart {
         id
         checkoutUrl
-        lines(first: 100) { edges { node { id merchandise { ... on ProductVariant { id } } } } }
+        lines(first: 100) {
+          edges {
+            node {
+              id
+              attributes { key value }
+              merchandise { ... on ProductVariant { id } }
+            }
+          }
+        }
       }
       userErrors { field message }
     }
@@ -110,7 +119,15 @@ export const CART_LINES_ADD_MUTATION = `
     cartLinesAdd(cartId: $cartId, lines: $lines) {
       cart {
         id
-        lines(first: 100) { edges { node { id merchandise { ... on ProductVariant { id } } } } }
+        lines(first: 100) {
+          edges {
+            node {
+              id
+              attributes { key value }
+              merchandise { ... on ProductVariant { id } }
+            }
+          }
+        }
       }
       userErrors { field message }
     }
@@ -135,7 +152,10 @@ export const CART_LINES_REMOVE_MUTATION = `
   }
 `;
 
-export async function storefrontApiRequest(query: string, variables: Record<string, unknown> = {}) {
+export async function storefrontApiRequest(
+  query: string,
+  variables: Record<string, unknown> = {}
+) {
   const response = await fetch(SHOPIFY_STOREFRONT_URL, {
     method: "POST",
     headers: {
@@ -159,8 +179,13 @@ export async function storefrontApiRequest(query: string, variables: Record<stri
 
   const data = await response.json();
   if (data.errors) {
-    throw new Error(`Error calling Shopify: ${data.errors.map((e: { message: string }) => e.message).join(", ")}`);
+    throw new Error(
+      `Error calling Shopify: ${data.errors
+        .map((error: { message: string }) => error.message)
+        .join(", ")}`
+    );
   }
+
   return data;
 }
 
@@ -178,8 +203,8 @@ export function isCartNotFoundError(
   userErrors: Array<{ field: string[] | null; message: string }>
 ): boolean {
   return userErrors.some(
-    (e) =>
-      e.message.toLowerCase().includes("cart not found") ||
-      e.message.toLowerCase().includes("does not exist")
+    (error) =>
+      error.message.toLowerCase().includes("cart not found") ||
+      error.message.toLowerCase().includes("does not exist")
   );
 }

@@ -14,7 +14,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 app.use(express.json());
 
-// Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../dist')));
 
 app.post('/api/create-checkout-session', async (req, res) => {
@@ -28,16 +27,28 @@ app.post('/api/create-checkout-session', async (req, res) => {
           currency: item.price.currencyCode.toLowerCase(),
           product_data: {
             name: item.product.node.title,
-            description: `${item.variantTitle} - Service Tier: ${item.selectedOptions.find(o => o.name === 'Service Tier')?.value || 'Basic'}`,
-            images: item.product.node.images.edges.map(e => e.node.url),
+            description: item.selectedOptions
+              .map((option) => `${option.name}: ${option.value}`)
+              .join(' / '),
+            images: item.product.node.images.edges.map((edge) => edge.node.url),
           },
           unit_amount: Math.round(parseFloat(item.price.amount) * 100),
         },
         quantity: item.quantity,
       })),
+      metadata: {
+        item_count: String(items.reduce((sum, item) => sum + item.quantity, 0)),
+        tiers: [...new Set(
+          items.map(
+            (item) =>
+              item.selectedOptions.find((option) => option.name === 'Service Tier')?.value ||
+              'basic'
+          )
+        )].join(','),
+      },
       mode: 'payment',
       success_url: `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.origin}/cart`,
+      cancel_url: `${req.headers.origin}/?cart=open`,
     });
 
     res.json({ id: session.id });
@@ -47,8 +58,6 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
-// The "catchall" handler: for any request that doesn't
-// match one above, send back React's index.html file.
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
