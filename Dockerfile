@@ -46,4 +46,4 @@ EXPOSE 3000
 # Set environment variables for production
 ENV NODE_ENV=production
 
-CMD ["node", "server/index.js"]
+CMD ["npm", "start"]
