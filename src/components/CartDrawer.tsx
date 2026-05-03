@@ -61,15 +61,20 @@ export const CartDrawer = () => {
   const handleCheckout = async () => {
     setIsCheckoutLoading(true);
     try {
+      const session = await createCheckoutSession(items);
+      if (session.error) throw new Error(session.error);
+
+      // Use the Stripe-hosted checkout URL directly (more reliable than redirectToCheckout)
+      if (session.url) {
+        window.location.href = session.url;
+        return;
+      }
+
+      // Fallback to legacy redirectToCheckout if url is missing
       const stripe = await getStripe();
       if (!stripe) throw new Error("Stripe failed to load");
-
-      const { id: sessionId } = await createCheckoutSession(items);
-      const { error } = await stripe.redirectToCheckout({ sessionId });
-
-      if (error) {
-        toast.error(error.message || "Checkout failed");
-      }
+      const { error } = await stripe.redirectToCheckout({ sessionId: session.id });
+      if (error) toast.error(error.message || "Checkout failed");
     } catch (err) {
       console.error(err);
       toast.error("Checkout service unavailable. Please try again later.");
