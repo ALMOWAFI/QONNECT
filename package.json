@@ -41,6 +41,7 @@
     "@radix-ui/react-toggle": "^1.1.9",
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@stripe/stripe-js": "^9.4.0",
     "@supabase/supabase-js": "^2.105.1",
     "@tanstack/react-query": "^5.83.0",
     "@types/qrcode": "^1.5.6",
@@ -75,6 +76,9 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@aws-sdk/client-apprunner": "^3.1041.0",
+    "@aws-sdk/client-ec2": "^3.1041.0",
+    "@aws-sdk/client-ssm": "^3.1041.0",
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.16.5",
