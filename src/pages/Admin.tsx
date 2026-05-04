@@ -211,11 +211,11 @@ QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
                             <select 
                               value={order.status?.state || order.status || 'pending_payment'} 
                               onChange={(e) => updateStatus(order.sessionId, e.target.value)}
-                              className={\`px-2 py-1 text-[9px] uppercase tracking-tighter border bg-transparent outline-none cursor-pointer \${
+                              className={`px-2 py-1 text-[9px] uppercase tracking-tighter border bg-transparent outline-none cursor-pointer ${
                                 (order.status?.state || order.status) === 'ready_to_print' ? 'border-primary/50 text-primary' : 
                                 (order.status?.state || order.status) === 'shipped' ? 'border-green-500/50 text-green-500' :
                                 'border-muted-foreground/30 text-muted-foreground hover:border-foreground/50'
-                              }\`}
+                              }`}
                             >
                               <option value="pending_payment" className="bg-background text-foreground">Pending Payment</option>
                               <option value="intake_required" className="bg-background text-foreground">Intake Required</option>
