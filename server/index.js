@@ -599,7 +599,20 @@ app.get('/api/members/bridges', apiLimiter, async (req, res) => {
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-    // Fetch bridges owned by this user OR linked to orders with their email
+    // Step 1: find order IDs where customer_email matches (PostgREST can't
+    // filter on joined tables inside .or(), so we do this as a separate query)
+    const { data: userOrders } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('customer_email', user.email);
+
+    const orderIds = (userOrders || []).map(o => o.id);
+
+    // Step 2: fetch bridges by owner_id OR by order_id in the user's orders
+    const orFilter = orderIds.length
+      ? `owner_id.eq.${user.id},order_id.in.(${orderIds.join(',')})`
+      : `owner_id.eq.${user.id}`;
+
     const { data: bridges, error } = await supabase
       .from('bridges')
       .select(`
@@ -609,7 +622,7 @@ app.get('/api/members/bridges', apiLimiter, async (req, res) => {
           stripe_session_id, status, payment_status, items, customer_email
         )
       `)
-      .or(`owner_id.eq.${user.id},orders.customer_email.eq.${user.email}`)
+      .or(orFilter)
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
