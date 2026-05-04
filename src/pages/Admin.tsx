@@ -72,7 +72,7 @@ Edition: ${order.items[0].title}
 Tier: ${order.items[0].tier.toUpperCase()}
 Print Mode: ${intake.mode.toUpperCase()}
 Target URL: ${intake.targetUrl}
-QR Slug: ${intake.mode === 'bridge' ? \`qonnect.ai/b/\${intake.slug}\` : 'DIRECT'}
+QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
 ---------------------
     `.trim();
 
