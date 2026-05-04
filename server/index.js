@@ -365,10 +365,11 @@ app.post('/api/orders/:sessionId/intake', apiLimiter, async (req, res) => {
         // Persist the path on the order row in Supabase
         const { createClient } = await import('@supabase/supabase-js');
         const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-        await supabase
+        const { error: dbError } = await supabase
           .from('orders')
           .update({ print_asset_url: assetPath })
           .eq('stripe_session_id', sessionId);
+        if (dbError) console.error('❌ Failed to save print_asset_url to DB:', dbError.message);
 
         console.log(`🖨️  Print asset auto-generated for order ${sessionId}: ${assetPath}`);
       } catch (err) {
@@ -676,7 +677,8 @@ app.post('/api/admin/orders/:sessionId/generate-asset', adminLimiter, async (req
     // Persist the print asset URL on the order record
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-    await supabase.from('orders').update({ print_asset_url: assetPath }).eq('stripe_session_id', req.params.sessionId);
+    const { error: dbError } = await supabase.from('orders').update({ print_asset_url: assetPath }).eq('stripe_session_id', req.params.sessionId);
+    if (dbError) console.error('❌ Failed to save print_asset_url to DB:', dbError.message);
 
     res.json({ success: true, assetPath });
   } catch (err) {
