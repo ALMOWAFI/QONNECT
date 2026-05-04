@@ -86,7 +86,7 @@ QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
     setGeneratingId(sessionId);
     try {
       const password = sessionStorage.getItem("qonnect-admin-pw");
-      const response = await fetch(\`/api/admin/orders/\${sessionId}/generate-asset\`, {
+      const response = await fetch(`/api/admin/orders/${sessionId}/generate-asset`, {
         method: 'POST',
         headers: password ? { "x-admin-password": password } : {}
       });
@@ -109,7 +109,7 @@ QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
   const updateStatus = async (sessionId: string, newStatus: string) => {
     try {
       const password = sessionStorage.getItem("qonnect-admin-pw");
-      const response = await fetch(\`/api/admin/orders/\${sessionId}/status\`, {
+      const response = await fetch(`/api/admin/orders/${sessionId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -143,7 +143,7 @@ QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
             <button 
               key={status}
               onClick={() => setStatusFilter(status)}
-              className={\`w-full flex items-center gap-3 px-3 py-2.5 nav-text text-[11px] transition-all duration-300 \${activeTab === status ? 'bg-foreground/5 text-foreground' : 'text-muted-foreground hover:text-foreground'}\`}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 nav-text text-[11px] transition-all duration-300 ${activeTab === status ? 'bg-foreground/5 text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Package className="w-4 h-4" /> {status.replace(/_/g, ' ')}
             </button>
