@@ -237,8 +237,15 @@ function BridgeCard({ bridge: initial }: { bridge: Bridge }) {
                 : bridge.destinationType}
             </span>
             <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.25em] text-primary">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              Active
+              <span className={`h-1.5 w-1.5 rounded-full ${bridge.order?.status === 'shipped' || bridge.order?.status === 'delivered' ? 'bg-green-500' : 'bg-primary animate-pulse'}`} />
+              {
+                bridge.order?.status === 'pending_payment' ? 'Awaiting Payment' :
+                bridge.order?.status === 'intake_required' ? 'Action Req: Setup Identity' :
+                bridge.order?.status === 'ready_to_print' ? 'In the Atelier' :
+                bridge.order?.status === 'printing' ? 'Production in Progress' :
+                bridge.order?.status === 'shipped' ? 'In Transit' :
+                bridge.order?.status === 'delivered' ? 'Active' : 'Active'
+              }
             </span>
           </div>
 

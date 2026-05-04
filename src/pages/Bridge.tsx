@@ -32,17 +32,16 @@ const Bridge = () => {
       return;
     }
 
+    let isCancelled = false;
+
     (async () => {
       try {
         const result = await resolveSlug(slug);
 
+        if (isCancelled) return;
+
         if (!result) {
           setError("This bridge hasn't been built yet.");
-          return;
-        }
-
-        if (result.type === "redirect" && result.destination) {
-          window.location.href = result.destination;
           return;
         }
 
@@ -51,11 +50,25 @@ const Bridge = () => {
           return;
         }
 
+        if (result.type === "redirect" && result.destination) {
+          // The Digital Handshake: Add a deliberate, premium delay
+          setTimeout(() => {
+            if (!isCancelled) {
+              window.location.href = result.destination!;
+            }
+          }, 1500);
+          return;
+        }
+
         setError("This bridge hasn't been built yet.");
       } catch {
-        setError("Failed to connect to the world.");
+        if (!isCancelled) setError("Failed to connect to the world.");
       }
     })();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [slug, navigate]);
 
   // Render landing page template instead of redirecting
@@ -65,36 +78,51 @@ const Bridge = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-5 text-center">
-      <div className="max-w-xs w-full space-y-8 animate-in fade-in duration-1000">
+      <div className="max-w-md w-full space-y-8 animate-in fade-in zoom-in-95 duration-1000">
         <div className="relative">
-          <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
-          <div className="relative bg-background border border-border p-8 rounded-sm">
-            <Globe className="w-10 h-10 mx-auto text-primary mb-6 animate-pulse" />
-
+          <div className="absolute inset-0 bg-primary/10 blur-[100px] rounded-full" />
+          <div className="relative bg-background/50 border border-border/50 p-12 rounded-[2rem] backdrop-blur-md shadow-2xl">
             {error ? (
               <>
-                <h1 className="display text-2xl mb-4 text-destructive">Broken Bridge.</h1>
-                <p className="text-sm text-muted-foreground leading-relaxed">{error}</p>
+                <Globe className="w-12 h-12 mx-auto text-destructive/50 mb-6" />
+                <h1 className="display text-2xl mb-4 text-destructive">Signal Lost.</h1>
+                <p className="text-sm text-muted-foreground leading-relaxed font-serif">{error}</p>
                 <button onClick={() => navigate("/")} className="btn-transparent w-full mt-8">
                   Return Home
                 </button>
               </>
             ) : (
-              <>
-                <h1 className="display text-2xl mb-2 font-medium">QONNECTING...</h1>
-                <p className="eyebrow text-primary/60">/{slug}</p>
-                <div className="mt-8 flex justify-center">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <div className="space-y-8">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-24 h-24 rounded-full border border-primary/20 animate-ping" />
+                  </div>
+                  <Globe className="w-12 h-12 mx-auto text-primary relative z-10" />
                 </div>
-                <p className="text-xs text-muted-foreground mt-10 italic font-serif">
-                  Bridging the physical and digital.
-                </p>
-              </>
+                
+                <div>
+                  <p className="eyebrow text-[10px] text-primary/60 mb-3 tracking-[0.3em]">Secure Connection</p>
+                  <h1 className="display text-3xl font-light tracking-tight">Initializing...</h1>
+                </div>
+
+                <div className="pt-6 border-t border-border/50">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
+                    <span>Target:</span>
+                    <span className="text-foreground">/b/{slug}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground font-mono mt-2">
+                    <span>Status:</span>
+                    <span className="text-primary flex items-center gap-2">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Handshake
+                    </span>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        <p className="display text-xl font-light tracking-widest opacity-20">QONNECT — V1.0</p>
+        <p className="display text-sm font-light tracking-[0.4em] opacity-20 uppercase">QONNECT Identity Engine</p>
       </div>
     </div>
   );

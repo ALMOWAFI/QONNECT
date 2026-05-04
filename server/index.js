@@ -89,18 +89,50 @@ function buildOrderResponse(record) {
   };
 }
 
-// Fire-and-forget email (stub — wire to Resend/SendGrid when ready)
+// Fire-and-forget email
 async function sendOrderEmail(orderId, { emailTo, template, subject, sessionId }) {
   // Deduplicate: don't re-send the same email template for the same order
   const alreadySent = await hasEmailBeenSent(orderId, template);
   if (alreadySent) return;
 
-  // TODO: replace with actual email provider (Resend recommended for Supabase stacks)
-  // const resend = new Resend(process.env.RESEND_API_KEY);
-  // const { id } = await resend.emails.send({ from: 'QONNECT <orders@qonnect.ai>', to: emailTo, subject, ... });
+  let providerId = null;
 
-  console.log(`📧 [${template}] → ${emailTo} (session: ${sessionId})`);
-  await logEmailSent(orderId, { emailTo, template, subject, providerId: null });
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const { Resend } = await import('resend');
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      
+      let htmlContent = `<h1>Your QONNECT Order is Confirmed</h1><p>Order ID: ${sessionId.slice(-6).toUpperCase()}</p>`;
+      
+      if (template === 'intake-reminder') {
+        const intakeUrl = `${process.env.PUBLIC_URL || 'http://localhost:3000'}/success?session_id=${sessionId}`;
+        htmlContent += `<p>You successfully purchased a QONNECT garment. To initialize your digital bridge and move your item into production, please complete the configuration ritual:</p>
+                        <a href="${intakeUrl}" style="display:inline-block;padding:12px 24px;background-color:#000;color:#fff;text-decoration:none;margin-top:20px;font-family:sans-serif;letter-spacing:2px;text-transform:uppercase;font-size:12px;">Configure Identity</a>`;
+      }
+
+      const { data, error } = await resend.emails.send({
+        from: 'QONNECT <orders@qonnect.ai>', // Update this domain when fully verified in Resend
+        to: emailTo,
+        subject,
+        html: htmlContent
+      });
+
+      if (error) {
+        console.error('❌ Resend API Error:', error);
+      } else {
+        providerId = data?.id || 'resend_success';
+        console.log(`✅ 📧 [${template}] sent to ${emailTo}`);
+      }
+    } catch (err) {
+      console.error('❌ Failed to send email via Resend:', err.message);
+    }
+  } else {
+    console.log(`📧 [Simulated Email: ${template}] → ${emailTo} (session: ${sessionId})`);
+    console.log(`⚠️  Set RESEND_API_KEY to send real emails.`);
+    providerId = 'simulated';
+  }
+
+  await logEmailSent(orderId, { emailTo, template, subject, providerId });
 }
 
 // ---------------------------------------------------------------------------
