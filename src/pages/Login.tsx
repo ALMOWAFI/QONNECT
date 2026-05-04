@@ -20,12 +20,13 @@ const Login = () => {
         body: JSON.stringify({ email })
       });
 
-      if (!res.ok) throw new Error("Could not send magic link.");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not send magic link.");
 
       setIsSent(true);
       toast.success("Identity link sent! Check your inbox.");
-    } catch (error) {
-      toast.error("Authentication service unavailable.");
+    } catch (error: any) {
+      toast.error(error.message || "Authentication service unavailable.");
     } finally {
       setIsLoading(false);
     }

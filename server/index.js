@@ -48,6 +48,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 // ---------------------------------------------------------------------------
 // SECURITY & MIDDLEWARE
 // ---------------------------------------------------------------------------
+app.set('trust proxy', 1); // Trust Nginx reverse proxy for X-Forwarded-For
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 
@@ -181,7 +182,9 @@ app.post('/api/create-checkout-session', apiLimiter, async (req, res) => {
           currency: item.price.currencyCode.toLowerCase(),
           product_data: {
             name: item.product.node.title,
-            description: item.selectedOptions.map(o => `${o.name}: ${o.value}`).join(' / '),
+            ...(item.selectedOptions?.length
+              ? { description: item.selectedOptions.map(o => `${o.name}: ${o.value}`).join(' / ') }
+              : {}),
             images: item.product.node.images.edges
               .map(e => e.node.url)
               .filter(u => u?.startsWith('http')),
@@ -195,8 +198,12 @@ app.post('/api/create-checkout-session', apiLimiter, async (req, res) => {
       cancel_url:  `${req.headers.origin}/?cart=open`,
     });
 
+    // Respond immediately — never block checkout on a DB write
+    res.json({ id: session.id, url: session.url });
+
+    // Persist order record fire-and-forget (reconciled via webhook if this fails)
     const now = new Date().toISOString();
-    await saveOrderRecord({
+    saveOrderRecord({
       sessionId:    session.id,
       createdAt:    now,
       updatedAt:    now,
@@ -214,9 +221,8 @@ app.post('/api/create-checkout-session', apiLimiter, async (req, res) => {
       intake:       null,
       status:       'pending_payment',
       paymentStatus:'unpaid',
-    });
+    }).catch(err => console.error('❌ Order record save failed (non-fatal):', err.message));
 
-    res.json({ id: session.id, url: session.url });
   } catch (err) {
     console.error('❌ Stripe Session Error:', err.message);
     res.status(500).json({ error: 'Payment service temporarily unavailable.' });
