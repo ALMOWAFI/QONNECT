@@ -7,38 +7,40 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// QR sizes are set for HIGH-RESOLUTION print files (300 DPI target).
-// Current values assume the web mockup dimensions (772x579px).
-// When high-res master files arrive from the designer, update baseImage
-// paths and scale all coordinates proportionally.
+// Source images are web mockups (not print-ready):
+//   hero-hoodie.png + tech-edition.png = 772x579px
+//   med-edition.png                    = 1200x896px
 //
-// Rule of thumb: at 300 DPI, 1 inch = 300px. A 1" QR = 300px, 2" = 600px.
-// The current mockup images are ~772px wide at ~96 DPI (≈8 inches).
-// We're treating qrSize as the pixel size within the source image dimensions.
+// QR size is ~20% of image width so it fills the chest/pocket zone.
+// left/top = top-left corner of the QR placement.
+// To re-center after a size change: new_left = center_x - (qrSize / 2)
+//
+// When you get proper high-res print files, replace baseImage paths
+// and scale coordinates: new_coord = old_coord * (new_width / old_width)
 const EDITION_CONFIG = {
   'robotics': {
-    baseImage: '../src/assets/tech-edition.png',
-    qrSize: 600, // ~2 inches at 300 DPI — safe minimum for scanning on fabric
-    left: 265,   // X coordinate (pixels from left) — centered on placeholder
-    top: 168,    // Y coordinate (pixels from top)
+    baseImage: '../src/assets/tech-edition.png', // 772x579px
+    qrSize: 150,  // ~20% of 772px width
+    left: 311,    // centers QR around x=386 (horizontal midpoint)
+    top: 214,     // upper chest area
   },
   'medicine': {
-    baseImage: '../src/assets/med-edition.png',
-    qrSize: 600,
-    left: 415,
-    top: 270,
+    baseImage: '../src/assets/med-edition.png',  // 1200x896px
+    qrSize: 230,  // ~20% of 1200px width
+    left: 485,    // centers QR around x=600
+    top: 333,
   },
   'business': {
-    baseImage: '../src/assets/hero-hoodie.png',
-    qrSize: 600,
-    left: 265,
-    top: 168,
+    baseImage: '../src/assets/hero-hoodie.png',  // 772x579px
+    qrSize: 150,
+    left: 311,
+    top: 214,
   },
   'default': {
-    baseImage: '../src/assets/hero-hoodie.png',
-    qrSize: 600,
-    left: 265,
-    top: 168,
+    baseImage: '../src/assets/hero-hoodie.png',  // 772x579px
+    qrSize: 150,
+    left: 311,
+    top: 214,
   }
 };
 
