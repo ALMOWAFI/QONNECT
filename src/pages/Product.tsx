@@ -105,14 +105,29 @@ const Product = () => {
   const [selectedTier, setSelectedTier] = useState<
     "basic" | "standard" | "premium"
   >("basic");
+  const [brief, setBrief] = useState("");
   const addItem = useCartStore((s) => s.addItem);
   const isLoading = useCartStore((s) => s.isLoading);
 
   const tiers = [
-    { id: "basic", name: "Basic", price: 0, desc: "QR links to your provided URL." },
-    { id: "standard", name: "Standard", price: 20, desc: "We build your Linktree-style page." },
-    { id: "premium", name: "Premium", price: 50, desc: "Full custom landing page + domain." },
+    { id: "basic",    name: "Basic",    price: 0,  desc: "QR links to your provided URL. Set your destination after checkout." },
+    { id: "standard", name: "Standard", price: 20, desc: "We build your Linktree-style page. Tell us what to include." },
+    { id: "premium",  name: "Premium",  price: 50, desc: "Full custom landing page. Our architects build it in 48h from your brief." },
   ] as const;
+
+  const tierBriefConfig = {
+    basic:    { show: false, label: "", placeholder: "" },
+    standard: {
+      show: true,
+      label: "What should your page include?",
+      placeholder: "e.g. Links to my GitHub, LinkedIn, portfolio site, and a short bio. Keep the tone minimal and technical.",
+    },
+    premium: {
+      show: true,
+      label: "Tell us about your world.",
+      placeholder: "Who are you, what do you do, who should be impressed when they scan your hoodie? Include your tone, goals, and any assets we should use. Our architects will take it from here.",
+    },
+  } as const;
 
   useEffect(() => {
     if (!handle) return;
@@ -155,11 +170,7 @@ const Product = () => {
     if (!product || !selectedVariant) return;
 
     await addItem({
-      product: {
-        node: {
-          ...product,
-        },
-      },
+      product: { node: { ...product } },
       variantId: selectedVariant.id,
       variantTitle: `${selectedVariant.title} (${selectedTier.toUpperCase()})`,
       price: {
@@ -174,7 +185,10 @@ const Product = () => {
         ...(selectedVariant.selectedOptions || []),
         { name: "Service Tier", value: selectedTier },
       ],
+      brief: brief.trim() || undefined,
     });
+
+    setBrief("");
   };
 
   return (
@@ -272,6 +286,33 @@ const Product = () => {
                     of the garment itself.
                   </p>
                 </div>
+
+                {/* Tier-contextual brief — shown for Standard + Premium */}
+                {tierBriefConfig[selectedTier].show && (
+                  <div className="mt-8 border-t border-border pt-8 animate-in fade-in slide-in-from-top-2 duration-500">
+                    {selectedTier === "premium" && (
+                      <div className="mb-4 border border-primary/20 bg-primary/5 px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-[0.25em] text-primary">Briefing Session</p>
+                        <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                          You're paying for a custom page — not a URL. Share your world and our architects will build it in 48 hours.
+                        </p>
+                      </div>
+                    )}
+                    <label className="mb-3 block text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                      {tierBriefConfig[selectedTier].label}
+                    </label>
+                    <textarea
+                      value={brief}
+                      onChange={(e) => setBrief(e.target.value)}
+                      placeholder={tierBriefConfig[selectedTier].placeholder}
+                      rows={selectedTier === "premium" ? 6 : 4}
+                      className="w-full border border-border bg-background/50 px-5 py-4 text-sm leading-7 focus:outline-none focus:border-foreground/50 placeholder:text-muted-foreground/20 italic resize-none transition-all"
+                    />
+                    <p className="mt-2 text-[10px] text-muted-foreground uppercase tracking-[0.15em]">
+                      {brief.length > 0 ? `${brief.length} chars` : "Saved to your cart — pre-fills the intake form after checkout"}
+                    </p>
+                  </div>
+                )}
 
                 {product.variants.edges.length > 1 && (
                   <div className="mt-8">

@@ -31,16 +31,19 @@ function buildInitialEntries(
 
   return order.items.map((item) => {
     const existing = byItemKey.get(item.itemKey);
-    // In a new intake, basic tier defaults to direct, others to bridge
     const defaultMode = item.tier === "basic" ? "direct" : "bridge";
-    
+
     return {
       itemKey: item.itemKey,
       mode: (existing as any)?.mode || defaultMode,
-      targetUrl: existing?.targetUrl || "",
+      // Premium: no URL from user — they're paying for a custom build
+      targetUrl: item.tier === "premium"
+        ? (existing?.targetUrl || "#pending-build")
+        : (existing?.targetUrl || ""),
       slug: existing?.slug || "",
-      destinationType: existing?.destinationType || "linkedin",
-      brief: existing?.brief || "",
+      destinationType: existing?.destinationType || "custom-page",
+      // Pre-populate from cart brief if available
+      brief: existing?.brief || item.brief || "",
     };
   });
 }
@@ -227,21 +230,27 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
 
     for (const item of order.items) {
       const entry = entries.find((candidate) => candidate.itemKey === item.itemKey);
-      if (!entry?.targetUrl) {
-        toast.error(`Add a destination URL for ${item.title}.`);
-        return;
-      }
 
-      if (entry.mode === "bridge" && !entry.slug) {
-        toast.error(`Please choose a slug for your ${item.title} bridge.`);
-        return;
-      }
-
-      if (item.tier !== "basic" && entry.brief.trim().length < 20) {
-        toast.error(
-          `Add a clearer build brief for ${item.title}. Standard and Premium need more context.`
-        );
-        return;
+      if (item.tier === "premium") {
+        // Premium: brief is mandatory, no URL needed
+        if (!entry?.brief || entry.brief.trim().length < 30) {
+          toast.error(`Give us more detail in your brief for ${item.title}. The more you share, the better your page.`);
+          return;
+        }
+      } else {
+        // Basic / Standard: URL required
+        if (!entry?.targetUrl) {
+          toast.error(`Add a destination URL for ${item.title}.`);
+          return;
+        }
+        if (entry.mode === "bridge" && !entry.slug) {
+          toast.error(`Choose a slug for your ${item.title} bridge.`);
+          return;
+        }
+        if (item.tier === "standard" && entry.brief.trim().length < 20) {
+          toast.error(`Add a build brief for ${item.title} — Standard tier needs context to build your page.`);
+          return;
+        }
       }
     }
 
@@ -313,7 +322,8 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
           const entry = entries.find((candidate) => candidate.itemKey === item.itemKey);
           if (!entry) return null;
 
-          const requiresBrief = item.tier !== "basic";
+          const isPremium  = item.tier === "premium";
+          const isStandard = item.tier === "standard";
 
           return (
             <section key={item.itemKey} className="space-y-10 animate-in fade-in duration-700">
@@ -324,113 +334,149 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
                 <span className="signal-chip">{formatTierLabel(item.tier)} Tier</span>
               </div>
 
-              {/* The Choice Ritual */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => updateEntry(item.itemKey, "mode", "direct")}
-                  className={`p-8 text-left border transition-all duration-500 group ${
-                    entry.mode === "direct"
-                      ? "border-foreground bg-foreground/5"
-                      : "border-border hover:border-foreground/30"
-                  }`}
-                >
-                  <p className="nav-text text-[10px] mb-3 opacity-40">Option 01</p>
-                  <h4 className="display text-2xl mb-3 font-medium">Direct Link</h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    The QR code will point directly to your provided URL (e.g. LinkedIn). 
-                    Fast, reliable, and permanent.
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => updateEntry(item.itemKey, "mode", "bridge")}
-                  className={`p-8 text-left border transition-all duration-500 group relative overflow-hidden ${
-                    entry.mode === "bridge"
-                      ? "border-foreground bg-foreground/5 shadow-[0_0_40px_-15px_rgba(232,224,200,0.2)]"
-                      : "border-border hover:border-foreground/30"
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <p className="nav-text text-[10px] opacity-40">Option 02</p>
-                    <span className="text-[9px] uppercase tracking-tighter text-primary bg-primary/10 px-2 py-0.5">Recommended</span>
+              {/* ── PREMIUM: Briefing Session only, no URL ── */}
+              {isPremium ? (
+                <div className="bg-foreground/[0.02] border border-primary/20 p-8 md:p-12 space-y-8">
+                  <div>
+                    <p className="eyebrow text-primary mb-2">Briefing Session</p>
+                    <h3 className="display text-2xl font-medium">Tell us about your world.</h3>
+                    <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                      You've paid for a custom page — our architects will build it in 48 hours.
+                      No URL needed. The more detail you give, the better the result.
+                    </p>
                   </div>
-                  <h4 className="display text-2xl mb-3 font-medium">QONNECT Bridge</h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    A future-proof redirect (qonnect.ai/b/slug). 
-                    Swap your destination URL anytime. Includes scan analytics.
-                  </p>
-                </button>
-              </div>
 
-              {/* Data Input Area */}
-              <div className="bg-foreground/[0.02] border border-border/50 p-8 md:p-12 space-y-10">
-                <div className="relative group">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center text-muted-foreground group-focus-within:text-foreground transition-colors">
-                    <Globe className="w-5 h-5" />
+                  <div>
+                    <label className="mb-3 block text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                      Your brief <span className="text-primary">*</span>
+                    </label>
+                    <textarea
+                      value={entry.brief}
+                      onChange={(e) => updateEntry(item.itemKey, "brief", e.target.value)}
+                      placeholder="Who are you, what do you do, and who should be impressed when they scan your hoodie? Include your tone, key sections, any links or assets we should reference, and what feeling the page should leave."
+                      rows={8}
+                      className="w-full border border-border bg-background/50 px-6 py-5 text-base leading-7 focus:outline-none focus:border-foreground/50 placeholder:text-muted-foreground/20 italic resize-none"
+                      disabled={isSubmitting}
+                    />
+                    <p className="mt-2 text-[10px] text-muted-foreground uppercase tracking-[0.15em]">
+                      {entry.brief.length < 30
+                        ? `${30 - entry.brief.length} more characters needed`
+                        : `${entry.brief.length} chars · Looking good`}
+                    </p>
                   </div>
-                  <input
-                    type="url"
-                    placeholder="https://yourworld.com"
-                    value={entry.targetUrl}
-                    onChange={(e) => updateEntry(item.itemKey, "targetUrl", e.target.value)}
-                    className="w-full bg-transparent border-b border-border py-6 pl-12 pr-4 text-2xl font-serif focus:outline-none focus:border-foreground transition-all placeholder:text-muted-foreground/10"
-                    required
-                  />
-                  <label className="absolute -top-6 left-0 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Destination URL</label>
-                </div>
 
-                {entry.mode === "bridge" && (
+                  {/* Still need a slug for the bridge URL */}
                   <SlugField
                     slug={entry.slug}
                     sessionId={order.sessionId}
                     disabled={isSubmitting}
                     onChange={(val) => updateEntry(item.itemKey, "slug", val)}
                   />
-                )}
-
-                <div className="grid gap-10 md:grid-cols-[250px_1fr] pt-4">
-                  <div>
-                    <label className="mb-3 block text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                      Destination type
-                    </label>
-                    <select
-                      value={entry.destinationType}
-                      onChange={(e) =>
-                        updateEntry(item.itemKey, "destinationType", e.target.value)
-                      }
-                      className="w-full border-b border-border bg-transparent py-4 text-sm focus:outline-none focus:border-foreground appearance-none cursor-pointer"
-                      disabled={isSubmitting}
-                    >
-                      <option value="linkedin">LinkedIn Profile</option>
-                      <option value="portfolio">Portfolio Site</option>
-                      <option value="linktree">Linktree / Bio-link</option>
-                      <option value="custom-page">Custom QONNECT Page</option>
-                      <option value="other">Other Destination</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="mb-3 block text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                      {requiresBrief ? "Build brief" : "Optional notes"}
-                    </label>
-                    <textarea
-                      value={entry.brief}
-                      onChange={(e) =>
-                        updateEntry(item.itemKey, "brief", e.target.value)
-                      }
-                      placeholder={
-                        requiresBrief
-                          ? "Describe your vision for this page. Include tone, key sections, and any specific assets we should use."
-                          : "Optional context for our fulfillment team."
-                      }
-                      className="min-h-32 w-full border border-border bg-background/50 px-6 py-6 text-base leading-7 focus:outline-none focus:border-foreground placeholder:text-muted-foreground/20 italic"
-                      disabled={isSubmitting}
-                    />
-                  </div>
                 </div>
-              </div>
+              ) : (
+                /* ── BASIC / STANDARD: URL + optional mode + brief ── */
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => updateEntry(item.itemKey, "mode", "direct")}
+                      className={`p-8 text-left border transition-all duration-500 ${
+                        entry.mode === "direct"
+                          ? "border-foreground bg-foreground/5"
+                          : "border-border hover:border-foreground/30"
+                      }`}
+                    >
+                      <p className="nav-text text-[10px] mb-3 opacity-40">Option 01</p>
+                      <h4 className="display text-2xl mb-3 font-medium">Direct Link</h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        QR points directly to your URL. Fast and permanent.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => updateEntry(item.itemKey, "mode", "bridge")}
+                      className={`p-8 text-left border transition-all duration-500 relative overflow-hidden ${
+                        entry.mode === "bridge"
+                          ? "border-foreground bg-foreground/5 shadow-[0_0_40px_-15px_rgba(232,224,200,0.2)]"
+                          : "border-border hover:border-foreground/30"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <p className="nav-text text-[10px] opacity-40">Option 02</p>
+                        <span className="text-[9px] uppercase tracking-tighter text-primary bg-primary/10 px-2 py-0.5">Recommended</span>
+                      </div>
+                      <h4 className="display text-2xl mb-3 font-medium">QONNECT Bridge</h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        A permanent slug (qonnect.ai/b/you) — swap your destination anytime. Includes scan analytics.
+                      </p>
+                    </button>
+                  </div>
+
+                  <div className="bg-foreground/[0.02] border border-border/50 p-8 md:p-12 space-y-10">
+                    <div className="relative group">
+                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center text-muted-foreground group-focus-within:text-foreground transition-colors">
+                        <Globe className="w-5 h-5" />
+                      </div>
+                      <input
+                        type="url"
+                        placeholder="https://yourworld.com"
+                        value={entry.targetUrl}
+                        onChange={(e) => updateEntry(item.itemKey, "targetUrl", e.target.value)}
+                        className="w-full bg-transparent border-b border-border py-6 pl-12 pr-4 text-2xl font-serif focus:outline-none focus:border-foreground transition-all placeholder:text-muted-foreground/10"
+                        required
+                      />
+                      <label className="absolute -top-6 left-0 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Destination URL</label>
+                    </div>
+
+                    {entry.mode === "bridge" && (
+                      <SlugField
+                        slug={entry.slug}
+                        sessionId={order.sessionId}
+                        disabled={isSubmitting}
+                        onChange={(val) => updateEntry(item.itemKey, "slug", val)}
+                      />
+                    )}
+
+                    <div className="grid gap-10 md:grid-cols-[250px_1fr] pt-4">
+                      <div>
+                        <label className="mb-3 block text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                          Destination type
+                        </label>
+                        <select
+                          value={entry.destinationType}
+                          onChange={(e) => updateEntry(item.itemKey, "destinationType", e.target.value)}
+                          className="w-full border-b border-border bg-transparent py-4 text-sm focus:outline-none focus:border-foreground appearance-none cursor-pointer"
+                          disabled={isSubmitting}
+                        >
+                          <option value="linkedin">LinkedIn Profile</option>
+                          <option value="portfolio">Portfolio Site</option>
+                          <option value="linktree">Linktree / Bio-link</option>
+                          <option value="custom-page">Custom QONNECT Page</option>
+                          <option value="other">Other Destination</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="mb-3 block text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                          {isStandard ? "Build brief *" : "Optional notes"}
+                        </label>
+                        <textarea
+                          value={entry.brief}
+                          onChange={(e) => updateEntry(item.itemKey, "brief", e.target.value)}
+                          placeholder={
+                            isStandard
+                              ? "What links, sections, and tone should your page have? We'll build it from this."
+                              : "Optional context for our fulfillment team."
+                          }
+                          className="min-h-32 w-full border border-border bg-background/50 px-6 py-6 text-base leading-7 focus:outline-none focus:border-foreground placeholder:text-muted-foreground/20 italic"
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </section>
           );
         })}

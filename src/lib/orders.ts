@@ -7,6 +7,7 @@ export interface OrderItemSummary {
   imageUrl: string | null;
   selectedOptions: Array<{ name: string; value: string }>;
   tier: string;
+  brief?: string | null;
 }
 
 export interface IntakeEntry {
