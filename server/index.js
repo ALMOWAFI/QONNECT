@@ -660,10 +660,16 @@ app.post('/api/admin/orders/:sessionId/generate-asset', adminLimiter, async (req
       return res.status(400).json({ error: 'Intake not submitted yet — no slug to generate QR from.' });
     }
 
+    const entry = intake.entries[0];
+    const slug  = entry?.mode === 'bridge' ? entry?.slug : null;
+
+    if (!slug) {
+      return res.status(400).json({ error: 'This order uses direct-link mode — no bridge slug to embed in the QR.' });
+    }
+
     const { generateCompositeAsset } = await import('./compositor.js');
     const item    = record.items?.[0] || {};
     const edition = item.title || 'default';
-    const slug    = intake.entries[0]?.slug || intake.entries[0]?.targetUrl || 'unknown';
 
     const assetPath = await generateCompositeAsset(req.params.sessionId, edition, slug);
 
