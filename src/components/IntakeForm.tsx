@@ -255,6 +255,18 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
       setSavedOrder(updatedOrder);
       onSubmitted?.(updatedOrder);
       toast.success("Identity secured. We are building your bridge.");
+
+      // Auto-send magic link so user can access their bridge dashboard later
+      try {
+        await fetch('/api/auth/claim-bridge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: contactEmail }),
+        });
+        toast.success(`Access link sent to ${contactEmail} — check your inbox to manage your bridge.`, { duration: 6000 });
+      } catch {
+        // Non-fatal — user can still request it manually from /login
+      }
     } catch (error) {
       console.error(error);
       toast.error(

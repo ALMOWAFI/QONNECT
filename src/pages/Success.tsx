@@ -229,29 +229,14 @@ const Success = () => {
 
                   {order.intake && (
                     <div className="mt-16 border-t border-border/50 pt-16 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                      <p className="eyebrow text-primary mb-4">Final Step: Secure the Bridge</p>
-                      <h3 className="display text-2xl mb-6">Want to edit your link later?</h3>
+                      <p className="eyebrow text-primary mb-4">You're all set</p>
+                      <h3 className="display text-2xl mb-6">Check your email.</h3>
                       <p className="text-muted-foreground mb-10 max-w-md mx-auto italic font-serif text-lg">
-                        Claim your digital identity now to track scans and swap your destination URL anytime.
+                        We've sent an access link to your email. Click it anytime to manage your bridge, track scans, and update your destination URL.
                       </p>
-                      <button 
-                        onClick={async () => {
-                          try {
-                            const res = await fetch('/api/auth/claim-bridge', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ email: order.customerEmail })
-                            });
-                            if (!res.ok) throw new Error();
-                            toast.success("Magic link sent! Check your email to secure your world.");
-                          } catch {
-                            toast.error("Could not trigger sign-up. Try again later.");
-                          }
-                        }}
-                        className="btn-transparent !px-12 group"
-                      >
-                        Claim My Identity <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
-                      </button>
+                      <a href="/login" className="btn-transparent !px-12 group inline-flex items-center">
+                        Go to My Bridge <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
+                      </a>
                     </div>
                   )}
                 </>
