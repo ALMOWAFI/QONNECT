@@ -38,14 +38,14 @@ const FLAGSHIP_REGISTRY: Record<string, ProductDetail> = {
     title: "QONNECT Hoodie: Robotics Edition",
     handle: "robotics-edition",
     description: "A heavyweight hoodie designed for builders. Features the 'Digital Bridge' back print with technical-luxury aesthetics.\n\n· 450 GSM Heavyweight Cotton\n· Oversized unisex fit\n· Custom QR print on the back\n· High quality print",
-    priceRange: { minVariantPrice: { amount: "150.00", currencyCode: "USD" } },
+    priceRange: { minVariantPrice: { amount: "0.50", currencyCode: "EUR" } },
     images: { edges: [{ node: { url: techImage, altText: "Robotics Edition Hoodie" } }] },
     variants: {
       edges: [{
         node: {
           id: "gid://shopify/ProductVariant/v-tech",
           title: "Default Title",
-          price: { amount: "150.00", currencyCode: "USD" },
+          price: { amount: "0.50", currencyCode: "EUR" },
           availableForSale: true,
           selectedOptions: [{ name: "Title", value: "Default Title" }]
         }
