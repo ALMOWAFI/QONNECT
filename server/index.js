@@ -392,6 +392,16 @@ app.get('/api/resolve-slug/:slug', async (req, res) => {
 
     if (result.type === 'template') {
       res.json({ type: 'template', template: result });
+    } else if (result.destination === '#pending-build') {
+      // Premium tier — page is still being built. Return a holding template.
+      res.json({
+        type: 'template',
+        template: {
+          type:    'pending-build',
+          slug,
+          message: 'This page is being crafted by our architects. Check back in 48 hours.',
+        },
+      });
     } else {
       res.json({ type: 'redirect', destination: result.destination });
     }
@@ -604,6 +614,39 @@ app.patch('/api/admin/orders/:sessionId/status', adminLimiter, async (req, res) 
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: 'Status update failed.' });
+  }
+});
+
+app.post('/api/admin/orders/:sessionId/generate-asset', adminLimiter, async (req, res) => {
+  if (req.headers['x-admin-password'] !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+
+  try {
+    const record = await getOrderRecord(req.params.sessionId);
+    if (!record) return res.status(404).json({ error: 'Order not found.' });
+
+    const intake = record.intake;
+    if (!intake?.entries?.length) {
+      return res.status(400).json({ error: 'Intake not submitted yet — no slug to generate QR from.' });
+    }
+
+    const { generateCompositeAsset } = await import('./compositor.js');
+    const item    = record.items?.[0] || {};
+    const edition = item.title || 'default';
+    const slug    = intake.entries[0]?.slug || intake.entries[0]?.targetUrl || 'unknown';
+
+    const assetPath = await generateCompositeAsset(req.params.sessionId, edition, slug);
+
+    // Persist the print asset URL on the order record
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    await supabase.from('orders').update({ print_asset_url: assetPath }).eq('stripe_session_id', req.params.sessionId);
+
+    res.json({ success: true, assetPath });
+  } catch (err) {
+    console.error('❌ generate-asset error:', err.message);
+    res.status(500).json({ error: err.message || 'Compositor failed.' });
   }
 });
 

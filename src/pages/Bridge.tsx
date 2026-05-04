@@ -71,6 +71,39 @@ const Bridge = () => {
     };
   }, [slug, navigate]);
 
+  // Premium holding page — page is being built
+  if (template && (template as any).type === 'pending-build') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-5 text-center">
+        <div className="max-w-md w-full space-y-8 animate-in fade-in zoom-in-95 duration-1000">
+          <div className="relative">
+            <div className="absolute inset-0 bg-primary/10 blur-[100px] rounded-full" />
+            <div className="relative bg-background/50 border border-primary/20 p-12 rounded-[2rem] backdrop-blur-md shadow-2xl space-y-8">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-20 h-20 rounded-full border border-primary/20 animate-pulse" />
+                </div>
+                <Globe className="w-10 h-10 mx-auto text-primary relative z-10" />
+              </div>
+              <div>
+                <p className="eyebrow text-[10px] text-primary/60 mb-3 tracking-[0.3em]">In the Atelier</p>
+                <h1 className="display text-3xl font-light tracking-tight">Your page is being built.</h1>
+                <p className="mt-4 text-sm text-muted-foreground font-serif leading-relaxed italic">
+                  Our architects are crafting your digital identity. This page will be live within 48 hours.
+                </p>
+              </div>
+              <div className="pt-6 border-t border-border/30 text-xs text-muted-foreground font-mono flex justify-between">
+                <span>Bridge</span>
+                <span className="text-foreground">/b/{slug}</span>
+              </div>
+            </div>
+          </div>
+          <p className="display text-sm font-light tracking-[0.4em] opacity-20 uppercase">QONNECT Identity Engine</p>
+        </div>
+      </div>
+    );
+  }
+
   // Render landing page template instead of redirecting
   if (template) {
     return <TemplateRenderer data={template} />;

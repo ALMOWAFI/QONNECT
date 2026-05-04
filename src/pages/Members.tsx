@@ -352,26 +352,29 @@ const Members = () => {
   }, []);
 
   useEffect(() => {
-    // onAuthStateChange fires INITIAL_SESSION (sync) and SIGNED_IN (after magic link hash exchange).
-    // Using this instead of getSession() prevents a race where the hash token hasn't been
-    // processed yet when getSession() is called, causing a false "no session → redirect to login".
+    // When a user clicks a fresh magic link they land on /members#access_token=...
+    // Supabase processes that hash ASYNC — so INITIAL_SESSION fires with null first,
+    // then SIGNED_IN fires once the token exchange completes.
+    // We must NOT redirect to /login on INITIAL_SESSION null if a hash token is present.
+    const hasMagicLinkHash = window.location.hash.includes('access_token');
+    let loaded = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-        if (session) {
-          setUserEmail(session.user.email ?? null);
-          try {
-            const data = await fetchBridges(session.access_token);
-            setBridges(data);
-          } catch (err: any) {
-            toast.error(err.message || "Could not load your identity hub.");
-          } finally {
-            setLoading(false);
-          }
-        } else if (event === 'INITIAL_SESSION') {
-          // No session and no token in URL — send to login
+      if (session && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && !loaded) {
+        loaded = true;
+        setUserEmail(session.user.email ?? null);
+        try {
+          const data = await fetchBridges(session.access_token);
+          setBridges(data);
+        } catch (err: any) {
+          toast.error(err.message || "Could not load your identity hub.");
+        } finally {
           setLoading(false);
-          navigate("/login");
         }
+      } else if (event === 'INITIAL_SESSION' && !session && !hasMagicLinkHash) {
+        // Genuinely no session and no magic link in URL
+        setLoading(false);
+        navigate("/login");
       } else if (event === 'SIGNED_OUT') {
         navigate("/login");
       }
