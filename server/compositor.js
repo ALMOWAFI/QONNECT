@@ -19,28 +19,36 @@ const __dirname = path.dirname(__filename);
 // and scale coordinates: new_coord = old_coord * (new_width / old_width)
 const EDITION_CONFIG = {
   'robotics': {
-    baseImage: '../src/assets/tech-edition.png', // 772x579px — gold QR placeholder centered ~(200,275)
+    baseImage: '../src/assets/tech-edition.png', // 772x579px — gold circle between hands
     qrSize: 95,
     left: 153,
     top: 228,
+    qrDark:  '#000000',
+    qrLight: '#C9A86C', // gold — matches the artwork
   },
   'medicine': {
-    baseImage: '../src/assets/med-edition.png',  // 1200x896px — robot arm QR circle centered ~(290,484)
+    baseImage: '../src/assets/med-edition.png',  // 1200x896px — blue robot arm circle
     qrSize: 125,
     left: 228,
     top: 422,
+    qrDark:  '#000000',
+    qrLight: '#bbdefb', // electric blue — matches the artwork
   },
   'business': {
-    baseImage: '../src/assets/hero-hoodie.png',  // 772x579px — green QR placeholder centered ~(225,272)
+    baseImage: '../src/assets/hero-hoodie.png',  // 772x579px — green circle between hands
     qrSize: 90,
     left: 180,
     top: 227,
+    qrDark:  '#000000',
+    qrLight: '#c8e6c9', // soft green — matches the artwork
   },
   'default': {
-    baseImage: '../src/assets/hero-hoodie.png',  // 772x579px
+    baseImage: '../src/assets/hero-hoodie.png',
     qrSize: 90,
     left: 180,
     top: 227,
+    qrDark:  '#000000',
+    qrLight: '#c8e6c9',
   }
 };
 
@@ -64,14 +72,14 @@ export async function generateCompositeAsset(orderId, edition, slug) {
   console.log(`🖼️ Auto-Compositing ${editionKey} design for order ${orderId} (Slug: ${slug})`);
 
   try {
-    // 1. Generate the QR Code as a PNG Buffer — black on white for reliable scanning
+    // 1. Generate the QR Code as a PNG Buffer — styled per edition, dark on light for scanning
     const qrBuffer = await QRCode.toBuffer(qrUrl, {
       width: config.qrSize,
       margin: 1,
       errorCorrectionLevel: 'H',
       color: {
-        dark: '#000000',
-        light: '#ffffff',
+        dark:  config.qrDark,
+        light: config.qrLight,
       }
     });
 
