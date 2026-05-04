@@ -274,6 +274,27 @@ export async function writeBridge(entry, orderId) {
   if (error) console.error('❌ Supabase writeBridge:', error.message);
 }
 
+// Store the AI-generated art QR URL back onto the bridge row
+export async function saveArtQrUrl(slug, url) {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('bridges')
+    .update({ qr_art_url: url, updated_at: new Date().toISOString() })
+    .eq('slug', slug);
+  if (error) console.error('❌ saveArtQrUrl:', error.message);
+}
+
+// Return the art QR URL for a slug (null if not yet generated)
+export async function getArtQrUrl(slug) {
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from('bridges')
+    .select('qr_art_url')
+    .eq('slug', slug)
+    .maybeSingle();
+  return data?.qr_art_url || null;
+}
+
 export async function isSlugAvailable(slug, currentSessionId) {
   if (!supabase) return true;
 

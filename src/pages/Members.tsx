@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Loader2, Globe, TrendingUp, ExternalLink,
   Edit2, Check, X, ArrowUpRight, Scan, MapPin, Smartphone,
+  Download, QrCode, Sparkles,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -96,6 +97,118 @@ function EditForm({ bridge, onSaved }: { bridge: Bridge; onSaved: (url: string) 
       >
         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
       </button>
+    </div>
+  );
+}
+
+type ArtStatus = "pending" | "ready" | "unavailable";
+
+function QrPanel({ slug }: { slug: string }) {
+  const [artStatus, setArtStatus] = useState<ArtStatus>("pending");
+  const [artUrl, setArtUrl]       = useState<string | null>(null);
+  const [showArt, setShowArt]     = useState(false);
+  const pollRef                   = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const res  = await fetch(`/api/qr/${slug}/art`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.status === "ready") {
+          setArtStatus("ready");
+          setArtUrl(data.url);
+          if (pollRef.current) clearInterval(pollRef.current);
+        } else if (data.status === "unavailable") {
+          setArtStatus("unavailable");
+          if (pollRef.current) clearInterval(pollRef.current);
+        }
+      } catch { /* network hiccup — keep polling */ }
+    };
+
+    check();
+    pollRef.current = setInterval(check, 8000); // poll every 8s while pending
+
+    return () => {
+      cancelled = true;
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [slug]);
+
+  const active = showArt && artStatus === "ready" && artUrl;
+  const imgSrc  = active ? artUrl! : `/api/qr/${slug}.png?size=160`;
+
+  return (
+    <div className="border border-border/50 p-3 space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <p className="text-[9px] uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-1.5">
+          <QrCode className="w-3 h-3" /> Your QR
+        </p>
+        {artStatus === "ready" && (
+          <button
+            onClick={() => setShowArt(v => !v)}
+            className={`flex items-center gap-1 text-[9px] uppercase tracking-[0.2em] px-2 py-1 border transition-all duration-200 ${
+              showArt
+                ? "border-primary/40 text-primary bg-primary/5"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+            }`}
+          >
+            <Sparkles className="w-2.5 h-2.5" />
+            {showArt ? "Standard" : "Art"}
+          </button>
+        )}
+        {artStatus === "pending" && (
+          <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+            <Loader2 className="w-2.5 h-2.5 animate-spin" /> Generating art…
+          </span>
+        )}
+      </div>
+
+      {/* QR image */}
+      <img
+        key={imgSrc}
+        src={imgSrc}
+        alt={`QR code for ${slug}`}
+        width={80}
+        height={80}
+        className="w-20 h-20 mx-auto block transition-opacity duration-300"
+        loading="lazy"
+      />
+
+      {/* Download buttons */}
+      <div className="flex gap-2">
+        {active ? (
+          <a
+            href={artUrl!}
+            download={`qonnect-${slug}-art.png`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-1.5 border border-border py-2 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all duration-200 active:scale-[0.97]"
+          >
+            <Download className="w-2.5 h-2.5" /> Art PNG
+          </a>
+        ) : (
+          <>
+            <a
+              href={`/api/qr/${slug}.png?size=1024`}
+              download={`qonnect-${slug}.png`}
+              className="flex-1 flex items-center justify-center gap-1.5 border border-border py-2 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all duration-200 active:scale-[0.97]"
+            >
+              <Download className="w-2.5 h-2.5" /> PNG
+            </a>
+            <a
+              href={`/api/qr/${slug}.svg`}
+              download={`qonnect-${slug}.svg`}
+              className="flex-1 flex items-center justify-center gap-1.5 border border-border py-2 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all duration-200 active:scale-[0.97]"
+            >
+              <Download className="w-2.5 h-2.5" /> SVG
+            </a>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -197,6 +310,9 @@ function BridgeCard({ bridge: initial }: { bridge: Bridge }) {
               )}
             </div>
           )}
+
+          {/* QR code */}
+          <QrPanel slug={bridge.slug} />
 
           {/* View live */}
           <a

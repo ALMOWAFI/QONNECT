@@ -7,6 +7,7 @@ import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { fileURLToPath } from 'url';
+import QRCode from 'qrcode';
 import {
   getOrderRecord,
   saveOrderRecord,
@@ -23,6 +24,8 @@ import {
   logEmailSent,
   upsertShipment,
   updateOrderStatus,
+  saveArtQrUrl,
+  getArtQrUrl,
 } from './orderStore.js';
 
 // ---------------------------------------------------------------------------
@@ -293,6 +296,14 @@ app.post('/api/orders/:sessionId/intake', apiLimiter, async (req, res) => {
     for (const entry of normalizedEntries) {
       if (entry.mode === 'bridge' && entry.slug) {
         await writeBridge(entry, saved._dbId || null);
+
+        // Fire AI art QR generation async — does not block the response
+        const tier = updatedRecord.items?.find(i => i.itemKey === entry.itemKey)?.tier
+          || updatedRecord.items?.[0]?.tier
+          || 'business';
+        generateAndStoreArtQr(entry.slug, tier).catch(err =>
+          console.error('AI QR background error:', err.message)
+        );
       }
     }
 
@@ -370,6 +381,158 @@ app.get('/api/analytics/:slug/history', apiLimiter, async (req, res) => {
     res.json(history);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch scan history.' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// QR CODE GENERATION — on-demand, always points to qonnect.ai/b/:slug
+// ---------------------------------------------------------------------------
+
+const QR_BASE_URL = process.env.PUBLIC_URL || 'https://qonnect.ai';
+
+const QR_OPTIONS = {
+  errorCorrectionLevel: 'H',   // High — survives hoodie wear/crease
+  margin: 2,
+  color: { dark: '#000000', light: '#ffffff' },
+};
+
+// GET /api/qr/:slug.png  — PNG buffer (for downloading / embedding in img tags)
+app.get('/api/qr/:slug.png', async (req, res) => {
+  const slug  = req.params.slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  const size  = Math.min(parseInt(req.query.size) || 512, 2048);
+  const dark  = req.query.dark === '1';
+
+  if (!slug) return res.status(400).json({ error: 'Invalid slug.' });
+
+  try {
+    const url    = `${QR_BASE_URL}/b/${slug}`;
+    const buffer = await QRCode.toBuffer(url, {
+      ...QR_OPTIONS,
+      width: size,
+      color: dark
+        ? { dark: '#ffffff', light: '#000000' }
+        : QR_OPTIONS.color,
+    });
+
+    res.set({
+      'Content-Type':        'image/png',
+      'Cache-Control':       'public, max-age=86400',
+      'Content-Disposition': `inline; filename="qonnect-${slug}.png"`,
+    });
+    res.send(buffer);
+  } catch (err) {
+    console.error('❌ QR PNG error:', err.message);
+    res.status(500).json({ error: 'QR generation failed.' });
+  }
+});
+
+// GET /api/qr/:slug.svg  — SVG string (crisp at any size, ideal for print suppliers)
+app.get('/api/qr/:slug.svg', async (req, res) => {
+  const slug = req.params.slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  const dark = req.query.dark === '1';
+
+  if (!slug) return res.status(400).json({ error: 'Invalid slug.' });
+
+  try {
+    const url = `${QR_BASE_URL}/b/${slug}`;
+    const svg = await QRCode.toString(url, {
+      type: 'svg',
+      ...QR_OPTIONS,
+      color: dark
+        ? { dark: '#ffffff', light: '#000000' }
+        : QR_OPTIONS.color,
+    });
+
+    res.set({
+      'Content-Type':        'image/svg+xml',
+      'Cache-Control':       'public, max-age=86400',
+      'Content-Disposition': `attachment; filename="qonnect-${slug}.svg"`,
+    });
+    res.send(svg);
+  } catch (err) {
+    console.error('❌ QR SVG error:', err.message);
+    res.status(500).json({ error: 'QR generation failed.' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// AI ART QR — tier-aware, generated via Replicate, stored on bridge row
+// ---------------------------------------------------------------------------
+
+const TIER_PROMPTS = {
+  tech: {
+    prompt:          'circuit board traces, neural network nodes, neon cyan glowing lines, deep blue dark background, cyberpunk, high detail, intricate, sharp focus, 8k',
+    negative_prompt: 'text, letters, words, watermark, ugly, blurry, low quality, pixelated, deformed',
+  },
+  medical: {
+    prompt:          'organic cell structure cross-section, bioluminescent blue-green glow, clean white background, DNA double helix, precision scientific illustration, soft light, minimal, elegant',
+    negative_prompt: 'text, letters, ugly, blurry, low quality, dark, horror, scary, deformed',
+  },
+  business: {
+    prompt:          'luxury black fabric with fine gold thread weave, premium textile close-up, gold silk embroidery on dark velvet, elegant, minimal, high fashion, studio lighting',
+    negative_prompt: 'text, letters, ugly, blurry, low quality, colorful, bright, cartoon',
+  },
+};
+
+// Fire-and-forget: generate AI art QR via Replicate and store result
+async function generateAndStoreArtQr(slug, tier = 'business') {
+  if (!process.env.REPLICATE_API_TOKEN) {
+    console.log(`⚠️  REPLICATE_API_TOKEN not set — skipping AI QR for "${slug}"`);
+    return;
+  }
+
+  const { prompt, negative_prompt } = TIER_PROMPTS[tier] || TIER_PROMPTS.business;
+  const qrUrl = `${QR_BASE_URL}/b/${slug}`;
+
+  console.log(`🎨 Generating AI QR for slug "${slug}" (tier: ${tier}) …`);
+
+  try {
+    const Replicate = (await import('replicate')).default;
+    const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
+
+    // lucataco/illusion-diffusion-hq — latest version
+    const output = await replicate.run('lucataco/illusion-diffusion-hq', {
+      input: {
+        prompt,
+        negative_prompt,
+        qr_code_content:              qrUrl,
+        guidance_scale:               7.5,
+        controlnet_conditioning_scale: 1.5,
+        num_inference_steps:          40,
+        width:                        768,
+        height:                       768,
+        qrcode_background:            'white',
+        seed:                         Math.floor(Math.random() * 2147483647),
+      },
+    });
+
+    // output is an array of file URLs from Replicate
+    const resultUrl = Array.isArray(output) ? output[0] : output;
+    if (!resultUrl) throw new Error('Replicate returned no output.');
+
+    await saveArtQrUrl(slug, String(resultUrl));
+    console.log(`✅ AI QR for "${slug}" stored: ${resultUrl}`);
+  } catch (err) {
+    console.error(`❌ AI QR generation failed for "${slug}":`, err.message);
+  }
+}
+
+// GET /api/qr/:slug/art — returns { status, url } — used by Members dashboard to poll
+app.get('/api/qr/:slug/art', apiLimiter, async (req, res) => {
+  const slug = req.params.slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  if (!slug) return res.status(400).json({ error: 'Invalid slug.' });
+
+  try {
+    const url = await getArtQrUrl(slug);
+    if (url) {
+      res.json({ status: 'ready', url });
+    } else if (!process.env.REPLICATE_API_TOKEN) {
+      res.json({ status: 'unavailable' });
+    } else {
+      res.json({ status: 'pending' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Could not fetch art QR status.' });
   }
 });
 

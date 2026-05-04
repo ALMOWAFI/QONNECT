@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, Download, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -180,6 +180,52 @@ const Success = () => {
               ) : order ? (
                 <>
                   <IntakeForm order={order} onSubmitted={setOrder} />
+
+                  {order.intake && (() => {
+                    const bridgeSlugs = (order.intake.entries || [])
+                      .filter((e: any) => e.mode === 'bridge' && e.slug)
+                      .map((e: any) => e.slug as string);
+                    return bridgeSlugs.length > 0 ? (
+                      <div className="mt-12 border-t border-border/50 pt-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="flex items-center gap-2 mb-8">
+                          <QrCode className="w-4 h-4 text-primary" />
+                          <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Your QR {bridgeSlugs.length > 1 ? 'Codes' : 'Code'}</p>
+                        </div>
+                        <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                          {bridgeSlugs.map((slug) => (
+                            <div key={slug} className="border border-border/50 p-6 text-center space-y-4">
+                              <p className="text-[9px] uppercase tracking-[0.25em] text-muted-foreground font-mono">{slug}</p>
+                              <img
+                                src={`/api/qr/${slug}.png?size=256`}
+                                alt={`QR code for ${slug}`}
+                                className="w-32 h-32 mx-auto block"
+                                loading="lazy"
+                              />
+                              <p className="text-[9px] text-muted-foreground leading-relaxed">
+                                This QR is printed on your hoodie. Scan it to visit your bridge.
+                              </p>
+                              <div className="flex gap-2">
+                                <a
+                                  href={`/api/qr/${slug}.png?size=2048`}
+                                  download={`qonnect-${slug}.png`}
+                                  className="flex-1 flex items-center justify-center gap-1.5 border border-border py-2 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all duration-200 active:scale-[0.97]"
+                                >
+                                  <Download className="w-2.5 h-2.5" /> PNG
+                                </a>
+                                <a
+                                  href={`/api/qr/${slug}.svg`}
+                                  download={`qonnect-${slug}.svg`}
+                                  className="flex-1 flex items-center justify-center gap-1.5 border border-border py-2 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all duration-200 active:scale-[0.97]"
+                                >
+                                  <Download className="w-2.5 h-2.5" /> SVG
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
 
                   {order.intake && (
                     <div className="mt-16 border-t border-border/50 pt-16 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
