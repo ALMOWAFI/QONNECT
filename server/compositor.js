@@ -7,33 +7,38 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// These coordinates are estimations based on the 772x579 web mockups.
-// When you get the 300-DPI high-res master files from the designer,
-// update the baseImage paths and these top/left/qrSize coordinates.
+// QR sizes are set for HIGH-RESOLUTION print files (300 DPI target).
+// Current values assume the web mockup dimensions (772x579px).
+// When high-res master files arrive from the designer, update baseImage
+// paths and scale all coordinates proportionally.
+//
+// Rule of thumb: at 300 DPI, 1 inch = 300px. A 1" QR = 300px, 2" = 600px.
+// The current mockup images are ~772px wide at ~96 DPI (≈8 inches).
+// We're treating qrSize as the pixel size within the source image dimensions.
 const EDITION_CONFIG = {
   'robotics': {
     baseImage: '../src/assets/tech-edition.png',
-    qrSize: 120, // Size of the QR code in pixels
-    left: 326,   // X coordinate (pixels from left)
-    top: 229,    // Y coordinate (pixels from top)
+    qrSize: 600, // ~2 inches at 300 DPI — safe minimum for scanning on fabric
+    left: 265,   // X coordinate (pixels from left) — centered on placeholder
+    top: 168,    // Y coordinate (pixels from top)
   },
   'medicine': {
     baseImage: '../src/assets/med-edition.png',
-    qrSize: 186,
-    left: 507,
-    top: 355,
+    qrSize: 600,
+    left: 415,
+    top: 270,
   },
   'business': {
     baseImage: '../src/assets/hero-hoodie.png',
-    qrSize: 120,
-    left: 326,
-    top: 229,
+    qrSize: 600,
+    left: 265,
+    top: 168,
   },
   'default': {
     baseImage: '../src/assets/hero-hoodie.png',
-    qrSize: 120,
-    left: 326,
-    top: 229,
+    qrSize: 600,
+    left: 265,
+    top: 168,
   }
 };
 
@@ -52,7 +57,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
                    : 'default';
 
   const config = EDITION_CONFIG[editionKey];
-  const qrUrl = `https://qonnect.ai/b/${slug}`;
+  const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.ai'}/b/${slug}`;
 
   console.log(`🖼️ Auto-Compositing ${editionKey} design for order ${orderId} (Slug: ${slug})`);
 
@@ -60,7 +65,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     // 1. Generate the QR Code as a transparent PNG Buffer
     const qrBuffer = await QRCode.toBuffer(qrUrl, {
       width: config.qrSize,
-      margin: 1,
+      margin: 2,
       errorCorrectionLevel: 'H',
       color: {
         dark: '#ffffff',     // White QR blocks
@@ -68,8 +73,8 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       }
     });
 
-    // 2. Ensure the output directory exists
-    const outDir = path.join(__dirname, '../dist/print-assets');
+    // 2. Ensure the output directory exists (outside /dist — survives deploys)
+    const outDir = path.join(__dirname, '../print-assets');
     if (!fs.existsSync(outDir)) {
       fs.mkdirSync(outDir, { recursive: true });
     }

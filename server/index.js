@@ -56,6 +56,8 @@ const adminLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 const apiLimiter   = rateLimit({ windowMs: 60 * 1000, max: 60 });
 
 app.use(express.static(path.join(__dirname, '../dist')));
+// Persistent print assets — stored outside /dist so deploys don't wipe them
+app.use('/print-assets', express.static(path.join(__dirname, '../print-assets')));
 
 // ---------------------------------------------------------------------------
 // HELPERS
@@ -81,11 +83,12 @@ function buildOrderResponse(record) {
       tier:            item.tier || 'basic',
       brief:           item.brief || null,
     })),
-    intake:        record.intake || null,
+    intake:          record.intake || null,
+    printAssetUrl:   record.printAssetUrl || null,
     status,
     timeline,
-    createdAt:     record.createdAt,
-    updatedAt:     record.updatedAt,
+    createdAt:       record.createdAt,
+    updatedAt:       record.updatedAt,
   };
 }
 
@@ -346,6 +349,32 @@ app.post('/api/orders/:sessionId/intake', apiLimiter, async (req, res) => {
         );
       }
     }
+
+    // Auto-composite print asset for every order with bridge mode entries
+    // Fire-and-forget — does not block the intake response
+    ;(async () => {
+      try {
+        const bridgeEntry = normalizedEntries.find(e => e.mode === 'bridge' && e.slug);
+        if (!bridgeEntry) return; // direct-link orders have no slug to embed
+
+        const { generateCompositeAsset } = await import('./compositor.js');
+        const item      = updatedRecord.items?.[0] || {};
+        const edition   = item.title || 'default';
+        const assetPath = await generateCompositeAsset(sessionId, edition, bridgeEntry.slug);
+
+        // Persist the path on the order row in Supabase
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+        await supabase
+          .from('orders')
+          .update({ print_asset_url: assetPath })
+          .eq('stripe_session_id', sessionId);
+
+        console.log(`🖨️  Print asset auto-generated for order ${sessionId}: ${assetPath}`);
+      } catch (err) {
+        console.error('❌ Auto-compositor error (non-fatal):', err.message);
+      }
+    })();
 
     res.json(buildOrderResponse(updatedRecord));
   } catch (err) {
