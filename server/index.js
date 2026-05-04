@@ -48,12 +48,20 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 // ---------------------------------------------------------------------------
 // SECURITY & MIDDLEWARE
 // ---------------------------------------------------------------------------
-app.set('trust proxy', 1); // Trust Nginx reverse proxy for X-Forwarded-For
+app.set('trust proxy', 1); // Trust Nginx reverse proxy
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 
-const adminLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
-const apiLimiter   = rateLimit({ windowMs: 60 * 1000, max: 60 });
+const adminLimiter = rateLimit({ 
+  windowMs: 15 * 60 * 1000, 
+  max: 100,
+  validate: { xForwardedForHeader: false } // Disable the warning that's filling the logs
+});
+const apiLimiter   = rateLimit({ 
+  windowMs: 60 * 1000, 
+  max: 60,
+  validate: { xForwardedForHeader: false }
+});
 
 app.use(express.static(path.join(__dirname, '../dist')));
 // Persistent print assets — stored outside /dist so deploys don't wipe them
@@ -628,6 +636,37 @@ app.get('/api/admin/orders', adminLimiter, async (req, res) => {
     res.json(orders.map(buildOrderResponse));
   } catch {
     res.status(500).json({ error: 'Failed to fetch queue.' });
+  }
+});
+
+app.post('/api/admin/orders/:sessionId/generate-asset', adminLimiter, async (req, res) => {
+  if (req.headers['x-admin-password'] !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+  
+  try {
+    const record = await getOrderRecord(req.params.sessionId);
+    if (!record) return res.status(404).json({ error: 'Order not found.' });
+
+    const intake = record.intake?.entries?.[0];
+    if (!intake || !intake.slug) {
+      return res.status(400).json({ error: 'Order has no unique bridge slug yet.' });
+    }
+
+    const edition = record.items?.[0]?.title || 'default';
+    
+    // Import the compositor dynamically to keep startup fast
+    const { generateCompositeAsset } = await import('./compositor.js');
+    
+    const assetUrl = await generateCompositeAsset(record.sessionId, edition, intake.slug);
+    
+    // Save the generated asset URL to the order record so the Admin dashboard can show a download link
+    await saveOrderRecord({ ...record, printAssetUrl: assetUrl });
+
+    res.json({ success: true, url: assetUrl });
+  } catch (error) {
+    console.error('Asset Generation Error:', error);
+    res.status(500).json({ error: 'Failed to generate print asset.' });
   }
 });
 
