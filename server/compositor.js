@@ -19,28 +19,28 @@ const __dirname = path.dirname(__filename);
 // and scale coordinates: new_coord = old_coord * (new_width / old_width)
 const EDITION_CONFIG = {
   'robotics': {
-    baseImage: '../src/assets/tech-edition.png', // 772x579px
-    qrSize: 150,  // ~20% of 772px width
-    left: 311,    // centers QR around x=386 (horizontal midpoint)
-    top: 214,     // upper chest area
+    baseImage: '../src/assets/tech-edition.png', // 772x579px — gold QR placeholder centered ~(200,275)
+    qrSize: 95,
+    left: 153,
+    top: 228,
   },
   'medicine': {
-    baseImage: '../src/assets/med-edition.png',  // 1200x896px
-    qrSize: 230,  // ~20% of 1200px width
-    left: 485,    // centers QR around x=600
-    top: 333,
+    baseImage: '../src/assets/med-edition.png',  // 1200x896px — robot arm QR circle centered ~(290,484)
+    qrSize: 125,
+    left: 228,
+    top: 422,
   },
   'business': {
-    baseImage: '../src/assets/hero-hoodie.png',  // 772x579px
-    qrSize: 150,
-    left: 311,
-    top: 214,
+    baseImage: '../src/assets/hero-hoodie.png',  // 772x579px — green QR placeholder centered ~(225,272)
+    qrSize: 90,
+    left: 180,
+    top: 227,
   },
   'default': {
     baseImage: '../src/assets/hero-hoodie.png',  // 772x579px
-    qrSize: 150,
-    left: 311,
-    top: 214,
+    qrSize: 90,
+    left: 180,
+    top: 227,
   }
 };
 
@@ -64,14 +64,14 @@ export async function generateCompositeAsset(orderId, edition, slug) {
   console.log(`🖼️ Auto-Compositing ${editionKey} design for order ${orderId} (Slug: ${slug})`);
 
   try {
-    // 1. Generate the QR Code as a transparent PNG Buffer
+    // 1. Generate the QR Code as a PNG Buffer — black on white for reliable scanning
     const qrBuffer = await QRCode.toBuffer(qrUrl, {
       width: config.qrSize,
-      margin: 2,
+      margin: 1,
       errorCorrectionLevel: 'H',
       color: {
-        dark: '#ffffff',     // White QR blocks
-        light: '#00000000'   // 100% Transparent background
+        dark: '#000000',
+        light: '#ffffff',
       }
     });
 
