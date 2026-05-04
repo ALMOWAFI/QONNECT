@@ -345,25 +345,32 @@ const Members = () => {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        // Pick up session — works both on direct load and after magic link redirect
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (!session) {
+    // onAuthStateChange fires INITIAL_SESSION (sync) and SIGNED_IN (after magic link hash exchange).
+    // Using this instead of getSession() prevents a race where the hash token hasn't been
+    // processed yet when getSession() is called, causing a false "no session → redirect to login".
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+        if (session) {
+          setUserEmail(session.user.email ?? null);
+          try {
+            const data = await fetchBridges(session.access_token);
+            setBridges(data);
+          } catch (err: any) {
+            toast.error(err.message || "Could not load your identity hub.");
+          } finally {
+            setLoading(false);
+          }
+        } else if (event === 'INITIAL_SESSION') {
+          // No session and no token in URL — send to login
+          setLoading(false);
           navigate("/login");
-          return;
         }
-
-        setUserEmail(session.user.email ?? null);
-        const data = await fetchBridges(session.access_token);
-        setBridges(data);
-      } catch (err: any) {
-        toast.error(err.message || "Could not load your identity hub.");
-      } finally {
-        setLoading(false);
+      } else if (event === 'SIGNED_OUT') {
+        navigate("/login");
       }
-    })();
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate, fetchBridges]);
 
   const handleSignOut = async () => {

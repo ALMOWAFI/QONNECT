@@ -20,16 +20,28 @@ const Layout = () => {
   useCartSync();
 
   useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
+    const io = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('active');
-        }
+        if (entry.isIntersecting) entry.target.classList.add('active');
       });
     }, { threshold: 0.1 });
 
-    document.querySelectorAll('.reveal-on-scroll').forEach(el => observer.observe(el));
-    return () => observer.disconnect();
+    // Observe elements already in the DOM
+    const observe = (root: Element | Document = document) =>
+      root.querySelectorAll('.reveal-on-scroll:not(.active)').forEach(el => io.observe(el));
+    observe();
+
+    // Watch for elements added later (e.g. product cards after async load)
+    const mo = new MutationObserver(mutations => {
+      mutations.forEach(m => m.addedNodes.forEach(node => {
+        if (!(node instanceof Element)) return;
+        if (node.classList.contains('reveal-on-scroll')) io.observe(node);
+        observe(node);
+      }));
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    return () => { io.disconnect(); mo.disconnect(); };
   }, []);
 
   return (

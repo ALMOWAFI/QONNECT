@@ -742,7 +742,7 @@ app.post('/api/auth/claim-bridge', apiLimiter, async (req, res) => {
   try {
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${req.headers.origin}/members` }
+      options: { emailRedirectTo: `${req.headers.origin || process.env.PUBLIC_URL}/members` }
     });
 
     if (error) {
