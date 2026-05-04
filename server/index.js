@@ -194,8 +194,8 @@ app.post('/api/create-checkout-session', apiLimiter, async (req, res) => {
         quantity: item.quantity,
       })),
       mode:        'payment',
-      success_url: `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${req.headers.origin}/?cart=open`,
+      success_url: `${req.headers.origin || process.env.PUBLIC_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${req.headers.origin || process.env.PUBLIC_URL}/?cart=open`,
     });
 
     // Respond immediately — never block checkout on a DB write
