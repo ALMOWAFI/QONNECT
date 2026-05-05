@@ -101,7 +101,7 @@ function EditForm({ bridge, onSaved }: { bridge: Bridge; onSaved: (url: string) 
   );
 }
 
-type ArtStatus = "pending" | "ready" | "unavailable";
+type ArtStatus = "pending" | "ready" | "unavailable" | "failed";
 
 function QrPanel({ slug }: { slug: string }) {
   const [artStatus, setArtStatus] = useState<ArtStatus>("pending");
@@ -126,6 +126,9 @@ function QrPanel({ slug }: { slug: string }) {
           if (pollRef.current) clearInterval(pollRef.current);
         } else if (data.status === "unavailable") {
           setArtStatus("unavailable");
+          if (pollRef.current) clearInterval(pollRef.current);
+        } else if (data.status === "failed") {
+          setArtStatus("failed");
           if (pollRef.current) clearInterval(pollRef.current);
         } else if (data.status === "pending") {
           setArtStatus("pending");
@@ -236,6 +239,15 @@ function QrPanel({ slug }: { slug: string }) {
         )}
         {artStatus === "unavailable" && (
           <span className="text-[9px] text-muted-foreground">Standard QR</span>
+        )}
+        {artStatus === "failed" && (
+          <button
+            onClick={handleRegenerate}
+            disabled={regenerating}
+            className="text-[9px] uppercase tracking-[0.2em] text-destructive/70 hover:text-destructive transition-colors disabled:opacity-50"
+          >
+            {regenerating ? "Retrying…" : "AI generation failed — retry"}
+          </button>
         )}
       </div>
 

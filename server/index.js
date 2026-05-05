@@ -360,27 +360,30 @@ app.post('/api/create-checkout-session', apiLimiter, async (req, res) => {
   if (!items?.length) return res.status(400).json({ error: 'Cart is empty.' });
 
   try {
+    const base = req.headers.origin || process.env.PUBLIC_URL || 'https://qonnect.work';
+    const cleanBase = base.startsWith('http') ? base : `https://${base}`;
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: items.map(item => ({
         price_data: {
-          currency: item.price.currencyCode.toLowerCase(),
+          currency: (item.price?.currencyCode || 'usd').toLowerCase(),
           product_data: {
-            name: item.product.node.title,
+            name: item.product?.node?.title || 'QONNECT Hoodie',
             ...(item.selectedOptions?.length
               ? { description: item.selectedOptions.map(o => `${o.name}: ${o.value}`).join(' / ') }
               : {}),
-            images: item.product.node.images.edges
-              .map(e => e.node.url)
+            images: (item.product?.node?.images?.edges || [])
+              .map(e => e.node?.url)
               .filter(u => u?.startsWith('http')),
           },
-          unit_amount: Math.round(parseFloat(item.price.amount) * 100),
+          unit_amount: Math.round(parseFloat(item.price?.amount || '0') * 100),
         },
         quantity: item.quantity,
       })),
       mode:        'payment',
-      success_url: `${req.headers.origin || process.env.PUBLIC_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${req.headers.origin || process.env.PUBLIC_URL}/?cart=open`,
+      success_url: `${cleanBase}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${cleanBase}/?cart=open`,
     });
 
     // Respond immediately — never block checkout on a DB write
@@ -466,7 +469,14 @@ app.post('/api/orders/:sessionId/intake', apiLimiter, async (req, res) => {
       if (entry.mode === 'bridge') {
         if (!slug) return res.status(400).json({ error: 'Bridge slug is required.' });
         const available = await isSlugAvailable(slug, sessionId);
-        if (!available) return res.status(400).json({ error: `Slug '${slug}' is already taken.` });
+        if (!available) {
+          let suggestion = null;
+          for (let i = 2; i <= 5; i++) {
+            const alt = `${slug}-${i}`;
+            if (await isSlugAvailable(alt, sessionId)) { suggestion = alt; break; }
+          }
+          return res.status(400).json({ error: `Slug '${slug}' is already taken.`, suggestion });
+        }
       }
 
       normalizedEntries.push({ ...entry, slug });
@@ -808,6 +818,7 @@ async function generateAndStoreArtQr(slug, tier = 'business', maxRetries = 3) {
     }
   } catch (err) {
     console.error(`❌ AI QR generation failed for "${slug}":`, err.message);
+    await saveArtQrUrl(slug, 'FAILED').catch(() => {});
   }
 }
 
@@ -818,7 +829,9 @@ app.get('/api/qr/:slug/art', apiLimiter, async (req, res) => {
 
   try {
     const url = await getArtQrUrl(slug);
-    if (url) {
+    if (url === 'FAILED') {
+      res.json({ status: 'failed' });
+    } else if (url) {
       res.json({ status: 'ready', url });
     } else if (!process.env.REPLICATE_API_TOKEN) {
       res.json({ status: 'unavailable' });

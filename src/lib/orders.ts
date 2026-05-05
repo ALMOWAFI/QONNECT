@@ -69,13 +69,21 @@ interface IntakeSubmissionPayload {
   entries: IntakeEntry[];
 }
 
+export class ApiError extends Error {
+  suggestion?: string;
+  constructor(message: string, suggestion?: string) {
+    super(message);
+    this.suggestion = suggestion;
+  }
+}
+
 async function handleJsonResponse<T>(response: Response): Promise<T> {
   const data = await response.json();
 
   if (!response.ok) {
     const message =
       typeof data?.error === "string" ? data.error : "Request failed";
-    throw new Error(message);
+    throw new ApiError(message, data?.suggestion);
   }
 
   return data as T;

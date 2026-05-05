@@ -5,6 +5,7 @@ import {
   OrderSummary,
   OrderIntakeSummary,
   submitOrderIntake,
+  ApiError,
 } from "@/lib/orders";
 
 interface IntakeFormProps {
@@ -289,11 +290,28 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
       }
     } catch (error) {
       console.error(error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "We could not save your intake right now."
-      );
+      if (error instanceof ApiError && error.suggestion) {
+        toast.error(
+          `${error.message} Try "${error.suggestion}" instead?`,
+          {
+            action: {
+              label: 'Use it',
+              onClick: () => {
+                setEntries(prev => prev.map(e =>
+                  e.mode === 'bridge' ? { ...e, slug: error.suggestion! } : e
+                ));
+              },
+            },
+            duration: 8000,
+          }
+        );
+      } else {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "We could not save your intake right now."
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
