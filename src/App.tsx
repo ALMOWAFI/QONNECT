@@ -1,5 +1,5 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   RouterProvider,
   createBrowserRouter,
@@ -53,6 +53,28 @@ const Layout = () => {
   );
 };
 
+// Lightweight guard — ensures a password is stored before rendering the admin page.
+// The Admin page itself handles 401s (re-prompt on bad password).
+// Real security is the server-side password check on every API call.
+const AdminGuard = () => {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const pw = sessionStorage.getItem('qonnect-admin-pw');
+    if (pw) { setReady(true); return; }
+
+    const input = prompt('Access Restricted. Enter Command Center Password:');
+    if (input) {
+      sessionStorage.setItem('qonnect-admin-pw', input);
+      setReady(true);
+    }
+    // If they dismiss the prompt, stay on blank page — nothing leaks
+  }, []);
+
+  if (!ready) return null;
+  return <Admin />;
+};
+
 const router = createBrowserRouter([
   {
     element: <Layout />,
@@ -61,7 +83,7 @@ const router = createBrowserRouter([
       { path: "/product/:handle", element: <Product /> },
       { path: "/success", element: <Success /> },
       { path: "/b/:slug", element: <Bridge /> },
-      { path: "/admin", element: <Admin /> },
+      { path: "/admin", element: <AdminGuard /> },
       { path: "/login", element: <Login /> },
       { path: "/members", element: <Members /> },
       { path: "*", element: <NotFound /> },

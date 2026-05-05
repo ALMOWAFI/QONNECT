@@ -12,9 +12,11 @@ export interface OrderItemSummary {
 
 export interface IntakeEntry {
   itemKey: string;
+  mode: 'direct' | 'bridge';
   targetUrl: string;
+  slug: string | null;
   destinationType: string;
-  brief: string;
+  brief: string | null;
 }
 
 export interface OrderIntakeSummary {

@@ -639,37 +639,6 @@ app.get('/api/admin/orders', adminLimiter, async (req, res) => {
   }
 });
 
-app.post('/api/admin/orders/:sessionId/generate-asset', adminLimiter, async (req, res) => {
-  if (req.headers['x-admin-password'] !== process.env.ADMIN_PASSWORD) {
-    return res.status(401).json({ error: 'Unauthorized.' });
-  }
-  
-  try {
-    const record = await getOrderRecord(req.params.sessionId);
-    if (!record) return res.status(404).json({ error: 'Order not found.' });
-
-    const intake = record.intake?.entries?.[0];
-    if (!intake || !intake.slug) {
-      return res.status(400).json({ error: 'Order has no unique bridge slug yet.' });
-    }
-
-    const edition = record.items?.[0]?.title || 'default';
-    
-    // Import the compositor dynamically to keep startup fast
-    const { generateCompositeAsset } = await import('./compositor.js');
-    
-    const assetUrl = await generateCompositeAsset(record.sessionId, edition, intake.slug);
-    
-    // Save the generated asset URL to the order record so the Admin dashboard can show a download link
-    await saveOrderRecord({ ...record, printAssetUrl: assetUrl });
-
-    res.json({ success: true, url: assetUrl });
-  } catch (error) {
-    console.error('Asset Generation Error:', error);
-    res.status(500).json({ error: 'Failed to generate print asset.' });
-  }
-});
-
 app.patch('/api/admin/orders/:sessionId/status', adminLimiter, async (req, res) => {
   if (req.headers['x-admin-password'] !== process.env.ADMIN_PASSWORD) {
     return res.status(401).json({ error: 'Unauthorized.' });
@@ -713,7 +682,8 @@ app.post('/api/admin/orders/:sessionId/generate-asset', adminLimiter, async (req
 
     const assetPath = await generateCompositeAsset(req.params.sessionId, edition, slug);
 
-    // Persist the print asset URL on the order record
+    // Persist the print asset URL — both in Supabase and in the local record store
+    await saveOrderRecord({ ...record, printAssetUrl: assetPath });
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     const { error: dbError } = await supabase.from('orders').update({ print_asset_url: assetPath }).eq('stripe_session_id', req.params.sessionId);
