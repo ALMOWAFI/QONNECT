@@ -108,6 +108,7 @@ function QrPanel({ slug }: { slug: string }) {
   const [artUrl, setArtUrl]       = useState<string | null>(null);
   // Art is the default view — toggle to standard on demand
   const [showStandard, setShowStandard] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -121,10 +122,13 @@ function QrPanel({ slug }: { slug: string }) {
         if (data.status === "ready") {
           setArtStatus("ready");
           setArtUrl(data.url);
+          setRegenerating(false);
           if (pollRef.current) clearInterval(pollRef.current);
         } else if (data.status === "unavailable") {
           setArtStatus("unavailable");
           if (pollRef.current) clearInterval(pollRef.current);
+        } else if (data.status === "pending") {
+          setArtStatus("pending");
         }
       } catch { /* network hiccup — keep polling */ }
     };
@@ -137,6 +141,41 @@ function QrPanel({ slug }: { slug: string }) {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [slug]);
+
+  const handleRegenerate = async () => {
+    setRegenerating(true);
+    setArtStatus("pending");
+    setShowStandard(false);
+    toast.success("AI Art Regeneration started. This takes about 30 seconds.");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      await fetch(`/api/members/bridges/${slug}/regenerate-art`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+      // The polling effect will automatically start picking up the "pending" state and then "ready"
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/qr/${slug}/art`);
+          const data = await res.json();
+          if (data.status === "ready") {
+            setArtStatus("ready");
+            setArtUrl(data.url);
+            setRegenerating(false);
+            clearInterval(pollRef.current!);
+          }
+        } catch { }
+      }, 8000);
+    } catch (err) {
+      toast.error("Failed to start regeneration.");
+      setRegenerating(false);
+      setArtStatus("ready");
+    }
+  };
 
   const showingArt = artStatus === "ready" && artUrl && !showStandard;
 
@@ -159,11 +198,11 @@ function QrPanel({ slug }: { slug: string }) {
           </div>
         </div>
       ) : (
-        <div className="border border-border/30 p-4">
+        <div className="border border-border/30 p-4 relative group">
           <img
             src={`/api/qr/${slug}.png?size=512`}
             alt={`QR code for ${slug}`}
-            className="w-full aspect-square object-contain block"
+            className={`w-full aspect-square object-contain block ${artStatus === "pending" ? 'opacity-50' : ''}`}
             loading="lazy"
           />
         </div>
@@ -178,6 +217,15 @@ function QrPanel({ slug }: { slug: string }) {
           >
             <QrCode className="w-3 h-3" />
             {showStandard ? "Show art" : "Show standard"}
+          </button>
+        )}
+        {artStatus === "ready" && showingArt && (
+          <button
+            onClick={handleRegenerate}
+            disabled={regenerating}
+            className="text-[9px] uppercase tracking-[0.2em] text-primary/70 hover:text-primary transition-colors disabled:opacity-50"
+          >
+            {regenerating ? 'Regenerating...' : 'Regenerate Art'}
           </button>
         )}
         {artStatus === "pending" && (

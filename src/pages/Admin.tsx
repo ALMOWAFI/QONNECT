@@ -1,19 +1,14 @@
 import { useState, useEffect } from "react";
-import { 
-  Package, 
-  Globe, 
-  Settings, 
-  TrendingUp, 
-  Search,
-  Filter,
-  MoreHorizontal,
+import {
+  Package,
   Download,
-  QrCode,
-  Clock,
   Loader2,
   Copy,
   Check,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Mail,
+  Link,
+  X,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -25,6 +20,10 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [notifyingId, setNotifyingId] = useState<string | null>(null);
+  const [liveUrlModal, setLiveUrlModal] = useState<{ slug: string; sessionId: string } | null>(null);
+  const [liveUrl, setLiveUrl] = useState("");
+  const [settingLiveUrl, setSettingLiveUrl] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -103,6 +102,54 @@ QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
       toast.error(err.message);
     } finally {
       setGeneratingId(null);
+    }
+  };
+
+  const notifySupplier = async (sessionId: string) => {
+    const email = prompt("Supplier email address:");
+    if (!email) return;
+    setNotifyingId(sessionId);
+    try {
+      const password = sessionStorage.getItem("qonnect-admin-pw");
+      const response = await fetch(`/api/admin/orders/${sessionId}/notify-supplier`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(password ? { "x-admin-password": password } : {})
+        },
+        body: JSON.stringify({ supplierEmail: email })
+      });
+      if (!response.ok) throw new Error((await response.json()).error);
+      toast.success(`Supplier notified at ${email}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to notify supplier.");
+    } finally {
+      setNotifyingId(null);
+    }
+  };
+
+  const setLiveUrlForBridge = async () => {
+    if (!liveUrlModal || !liveUrl) return;
+    setSettingLiveUrl(true);
+    try {
+      const password = sessionStorage.getItem("qonnect-admin-pw");
+      const response = await fetch(`/api/admin/bridges/${liveUrlModal.slug}/destination`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(password ? { "x-admin-password": password } : {})
+        },
+        body: JSON.stringify({ targetUrl: liveUrl, notifyCustomer: true })
+      });
+      if (!response.ok) throw new Error((await response.json()).error);
+      toast.success("Bridge updated and customer notified.");
+      setLiveUrlModal(null);
+      setLiveUrl("");
+      fetchOrders();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update bridge.");
+    } finally {
+      setSettingLiveUrl(false);
     }
   };
 
@@ -227,8 +274,9 @@ QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
                           </div>
                         </td>
                         <td className="p-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button 
+                          <div className="flex justify-end gap-2 flex-wrap">
+                            {/* Copy for supplier (clipboard) */}
+                            <button
                               onClick={() => copyForSupplier(order)}
                               className="btn-transparent !py-2 !px-3 text-[9px]"
                               disabled={!order.intake}
@@ -237,8 +285,9 @@ QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
                               {copiedId === order.sessionId ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                             </button>
 
+                            {/* Generate or download print file */}
                             {order.printAssetUrl ? (
-                              <a 
+                              <a
                                 href={order.printAssetUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -248,13 +297,39 @@ QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
                                 <Download className="w-3 h-3" />
                               </a>
                             ) : (
-                              <button 
+                              <button
                                 onClick={() => generateAsset(order.sessionId)}
                                 className="btn-filled !py-2 !px-3 text-[9px]"
                                 disabled={!order.intake || generatingId === order.sessionId}
                                 title="Auto-Composite Print File"
                               >
                                 {generatingId === order.sessionId ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
+                              </button>
+                            )}
+
+                            {/* Notify supplier by email */}
+                            {order.printAssetUrl && (
+                              <button
+                                onClick={() => notifySupplier(order.sessionId)}
+                                disabled={notifyingId === order.sessionId}
+                                className="btn-transparent !py-2 !px-3 text-[9px]"
+                                title="Email print file to supplier"
+                              >
+                                {notifyingId === order.sessionId ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
+                              </button>
+                            )}
+
+                            {/* Set live URL for premium #pending-build orders */}
+                            {order.intake?.entries?.[0]?.targetUrl === '#pending-build' && order.intake?.entries?.[0]?.slug && (
+                              <button
+                                onClick={() => {
+                                  setLiveUrlModal({ slug: order.intake.entries[0].slug, sessionId: order.sessionId });
+                                  setLiveUrl("");
+                                }}
+                                className="btn-transparent !py-2 !px-3 text-[9px] border-primary/40 text-primary"
+                                title="Set live URL for this premium page"
+                              >
+                                <Link className="w-3 h-3" />
                               </button>
                             )}
                           </div>
@@ -268,6 +343,48 @@ QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
           )}
         </div>
       </main>
+
+      {/* Set Live URL modal */}
+      {liveUrlModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="bg-background border border-border w-full max-w-md p-8 space-y-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="eyebrow text-[10px] mb-1">Set Live URL</p>
+                <h2 className="text-lg font-light">Bridge: <span className="font-medium">{liveUrlModal.slug}</span></h2>
+              </div>
+              <button onClick={() => setLiveUrlModal(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Final destination URL</label>
+              <input
+                type="url"
+                value={liveUrl}
+                onChange={e => setLiveUrl(e.target.value)}
+                placeholder="https://custompage.qonnect.work/..."
+                className="w-full bg-transparent border border-border px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-foreground/50 transition-colors"
+                autoFocus
+              />
+              <p className="text-[10px] text-muted-foreground">Customer will be notified by email that their page is live.</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setLiveUrlModal(null)}
+                className="flex-1 btn-transparent !py-2 text-[10px]"
+              >Cancel</button>
+              <button
+                onClick={setLiveUrlForBridge}
+                disabled={!liveUrl || settingLiveUrl}
+                className="flex-1 btn-filled !py-2 text-[10px]"
+              >
+                {settingLiveUrl ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : "Set Live & Notify"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

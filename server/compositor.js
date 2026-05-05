@@ -11,39 +11,40 @@ const __dirname = path.dirname(__filename);
 //   hero-hoodie.png + tech-edition.png = 772x579px
 //   med-edition.png                    = 1200x896px
 //
-// QR size is ~20% of image width so it fills the chest/pocket zone.
-// left/top = top-left corner of the QR placement.
-// To re-center after a size change: new_left = center_x - (qrSize / 2)
-//
-// When you get proper high-res print files, replace baseImage paths
-// and scale coordinates: new_coord = old_coord * (new_width / old_width)
+// The scaling logic mathematically adjusts the QR code size and position
+// based on the actual dimensions of the provided baseImage, allowing
+// seamless upgrading to 4000px+ 300DPI print files.
 const EDITION_CONFIG = {
   'robotics': {
-    baseImage: '../src/assets/tech-edition.png', // 772x579px — gold circle between hands
+    baseImage: '../src/assets/tech-edition.png',
+    baseWidth: 772,
     qrSize: 95,
     left: 153,
     top: 228,
     qrDark:  '#000000',
-    qrLight: '#C9A86C', // gold — matches the artwork
+    qrLight: '#C9A86C',
   },
   'medicine': {
-    baseImage: '../src/assets/med-edition.png',  // 1200x896px — blue robot arm circle
+    baseImage: '../src/assets/med-edition.png',
+    baseWidth: 1200,
     qrSize: 125,
     left: 228,
     top: 422,
     qrDark:  '#000000',
-    qrLight: '#bbdefb', // electric blue — matches the artwork
+    qrLight: '#bbdefb',
   },
   'business': {
-    baseImage: '../src/assets/hero-hoodie.png',  // 772x579px — green circle between hands
+    baseImage: '../src/assets/hero-hoodie.png',
+    baseWidth: 772,
     qrSize: 90,
     left: 180,
     top: 227,
     qrDark:  '#000000',
-    qrLight: '#c8e6c9', // soft green — matches the artwork
+    qrLight: '#c8e6c9',
   },
   'default': {
     baseImage: '../src/assets/hero-hoodie.png',
+    baseWidth: 772,
     qrSize: 90,
     left: 180,
     top: 227,
@@ -72,9 +73,23 @@ export async function generateCompositeAsset(orderId, edition, slug) {
   console.log(`🖼️ Auto-Compositing ${editionKey} design for order ${orderId} (Slug: ${slug})`);
 
   try {
-    // 1. Generate the QR Code as a PNG Buffer — styled per edition, dark on light for scanning
+    const baseImagePath = path.join(__dirname, config.baseImage);
+    if (!fs.existsSync(baseImagePath)) {
+        throw new Error(`Base image not found at ${baseImagePath}`);
+    }
+
+    // 1. Get actual dimensions of the base image to support dynamic high-res upgrades
+    const metadata = await sharp(baseImagePath).metadata();
+    const scaleFactor = metadata.width / config.baseWidth;
+    
+    // Scale coordinates and size to match the actual image resolution
+    const scaledQrSize = Math.round(config.qrSize * scaleFactor);
+    const scaledLeft = Math.round(config.left * scaleFactor);
+    const scaledTop = Math.round(config.top * scaleFactor);
+
+    // 2. Generate the QR Code as a PNG Buffer
     const qrBuffer = await QRCode.toBuffer(qrUrl, {
-      width: config.qrSize,
+      width: scaledQrSize,
       margin: 1,
       errorCorrectionLevel: 'H',
       color: {
@@ -83,36 +98,30 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       }
     });
 
-    // 2. Ensure the output directory exists (outside /dist — survives deploys)
+    // 3. Ensure the output directory exists
     const outDir = path.join(__dirname, '../print-assets');
     if (!fs.existsSync(outDir)) {
       fs.mkdirSync(outDir, { recursive: true });
     }
 
-    // 3. Define the exact filename the printer needs to see
     const shortOrder = orderId.slice(-6).toUpperCase();
     const fileName = `ORDER-${shortOrder}_${editionKey.toUpperCase()}_PRINT-FILE.png`;
     const outPath = path.join(outDir, fileName);
-    const baseImagePath = path.join(__dirname, config.baseImage);
 
-    if (!fs.existsSync(baseImagePath)) {
-        throw new Error(`Base image not found at ${baseImagePath}`);
-    }
-
-    // 4. Composite the QR onto the base image
+    // 4. Composite the scaled QR onto the base image
     await sharp(baseImagePath)
       .composite([
         {
           input: qrBuffer,
-          top: config.top,
-          left: config.left,
+          top: scaledTop,
+          left: scaledLeft,
           blend: 'over'
         }
       ])
       .png({ quality: 100 })
       .toFile(outPath);
 
-    console.log(`✅ Asset generated: ${fileName}`);
+    console.log(`✅ Asset generated at scaled resolution (${metadata.width}px): ${fileName}`);
     return `/print-assets/${fileName}`;
 
   } catch (error) {

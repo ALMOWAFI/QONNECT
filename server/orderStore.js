@@ -261,8 +261,8 @@ export async function writeBridge(entry, orderId) {
     target_url:       entry.targetUrl,
     destination_type: entry.destinationType || 'other',
     mode:             entry.mode || 'bridge',
-    template_data:    entry.destinationType === 'custom-page'
-      ? { brief: entry.brief || '', edition: null }
+    template_data:    entry.destinationType === 'custom-page' || entry.destinationType === 'linktree'
+      ? { brief: entry.brief || '', edition: null, links: entry.links || [] }
       : null,
     is_active:        true,
   };
@@ -324,13 +324,14 @@ export async function findDestinationBySlug(slug) {
 
   if (error || !data) return null;
 
-  if (data.destination_type === 'custom-page') {
+  if (data.destination_type === 'custom-page' || data.destination_type === 'linktree') {
     const items = data.orders?.items || [];
     return {
       type: 'template',
       slug:            data.slug,
       targetUrl:       data.target_url,
       brief:           data.template_data?.brief || '',
+      links:           data.template_data?.links || [],
       destinationType: data.destination_type,
       edition:         data.template_data?.edition || detectEdition(items),
       contactEmail:    data.orders?.customer_email || null,

@@ -100,32 +100,115 @@ function buildOrderResponse(record) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// EMAIL TEMPLATES
+// ---------------------------------------------------------------------------
+function buildEmailHtml({ title, body, ctaText, ctaUrl, orderId, footerNote }) {
+  const base = process.env.PUBLIC_URL || 'https://qonnect.work';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+        <!-- Header -->
+        <tr><td style="padding:0 0 32px 0;border-bottom:1px solid #222;">
+          <p style="margin:0;font-family:sans-serif;font-size:10px;letter-spacing:0.4em;text-transform:uppercase;color:#666;">QONNECT</p>
+        </td></tr>
+        <!-- Body -->
+        <tr><td style="padding:40px 0;">
+          <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:300;color:#f0ece0;letter-spacing:-0.02em;line-height:1.3;">${title}</h1>
+          ${orderId ? `<p style="margin:0 0 28px 0;font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#555;">Order #${orderId}</p>` : ''}
+          <div style="font-size:14px;line-height:1.7;color:#888;font-family:Georgia,serif;">${body}</div>
+          ${ctaText && ctaUrl ? `
+          <table cellpadding="0" cellspacing="0" style="margin-top:32px;">
+            <tr><td>
+              <a href="${ctaUrl}" style="display:inline-block;padding:14px 28px;background:#f0ece0;color:#0a0a0a;text-decoration:none;font-family:sans-serif;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;">${ctaText}</a>
+            </td></tr>
+          </table>` : ''}
+        </td></tr>
+        <!-- Footer -->
+        <tr><td style="padding:24px 0 0 0;border-top:1px solid #1a1a1a;">
+          ${footerNote ? `<p style="margin:0 0 12px 0;font-size:11px;color:#444;font-family:Georgia,serif;font-style:italic;">${footerNote}</p>` : ''}
+          <p style="margin:0;font-size:10px;color:#333;letter-spacing:0.2em;">
+            <a href="${base}" style="color:#555;text-decoration:none;">qonnect.work</a>
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function getEmailTemplate(template, { sessionId, trackingUrl, trackingNumber, carrier }) {
+  const base     = process.env.PUBLIC_URL || 'https://qonnect.work';
+  const orderId  = sessionId?.slice(-6).toUpperCase();
+  const intakeUrl = `${base}/success?session_id=${sessionId}`;
+
+  const templates = {
+    'intake-reminder': {
+      subject: 'Your QONNECT order is confirmed — one step left',
+      html: buildEmailHtml({
+        title: 'Order confirmed. One step to go.',
+        orderId,
+        body: `<p>Your garment is reserved. Before it enters production, you need to configure your digital identity — the URL your QR code will unlock.</p>
+               <p>This takes 2 minutes. Once complete, your hoodie moves to the print queue.</p>`,
+        ctaText: 'Configure Identity',
+        ctaUrl: intakeUrl,
+        footerNote: 'If you did not place this order, you can safely ignore this email.',
+      }),
+    },
+    'shipped': {
+      subject: 'Your QONNECT order has shipped',
+      html: buildEmailHtml({
+        title: 'Your hoodie is on its way.',
+        orderId,
+        body: `<p>Your QONNECT garment has left the atelier and is in transit.</p>
+               ${carrier ? `<p style="margin-top:16px;"><strong style="color:#f0ece0;">Carrier:</strong> ${carrier}</p>` : ''}
+               ${trackingNumber ? `<p><strong style="color:#f0ece0;">Tracking:</strong> ${trackingNumber}</p>` : ''}`,
+        ctaText: trackingUrl ? 'Track Shipment' : null,
+        ctaUrl: trackingUrl || null,
+        footerNote: 'Once it arrives, scan the QR code on the garment to activate your bridge.',
+      }),
+    },
+    'page-live': {
+      subject: 'Your QONNECT page is live',
+      html: buildEmailHtml({
+        title: 'Your identity page is live.',
+        orderId,
+        body: `<p>Our architects have finished building your custom page. Scan the QR on your hoodie — it now resolves to your live identity.</p>
+               <p>You can update your destination URL at any time from your dashboard.</p>`,
+        ctaText: 'View Dashboard',
+        ctaUrl: `${base}/members`,
+        footerNote: null,
+      }),
+    },
+  };
+
+  return templates[template] || templates['intake-reminder'];
+}
+
 // Fire-and-forget email
-async function sendOrderEmail(orderId, { emailTo, template, subject, sessionId }) {
-  // Deduplicate: don't re-send the same email template for the same order
+async function sendOrderEmail(orderId, { emailTo, template, subject, sessionId, trackingUrl, trackingNumber, carrier }) {
   const alreadySent = await hasEmailBeenSent(orderId, template);
   if (alreadySent) return;
 
   let providerId = null;
+  const { subject: tplSubject, html } = getEmailTemplate(template, { sessionId, trackingUrl, trackingNumber, carrier });
+  const finalSubject = subject || tplSubject;
 
   if (process.env.RESEND_API_KEY) {
     try {
       const { Resend } = await import('resend');
       const resend = new Resend(process.env.RESEND_API_KEY);
-      
-      let htmlContent = `<h1>Your QONNECT Order is Confirmed</h1><p>Order ID: ${sessionId.slice(-6).toUpperCase()}</p>`;
-      
-      if (template === 'intake-reminder') {
-        const intakeUrl = `${process.env.PUBLIC_URL || 'http://localhost:3000'}/success?session_id=${sessionId}`;
-        htmlContent += `<p>You successfully purchased a QONNECT garment. To initialize your digital bridge and move your item into production, please complete the configuration ritual:</p>
-                        <a href="${intakeUrl}" style="display:inline-block;padding:12px 24px;background-color:#000;color:#fff;text-decoration:none;margin-top:20px;font-family:sans-serif;letter-spacing:2px;text-transform:uppercase;font-size:12px;">Configure Identity</a>`;
-      }
 
       const { data, error } = await resend.emails.send({
-        from: 'QONNECT <orders@qonnect.ai>', // Update this domain when fully verified in Resend
+        from: `QONNECT <orders@${new URL(process.env.PUBLIC_URL || 'https://qonnect.work').hostname}>`,
         to: emailTo,
-        subject,
-        html: htmlContent
+        subject: finalSubject,
+        html,
       });
 
       if (error) {
@@ -138,12 +221,11 @@ async function sendOrderEmail(orderId, { emailTo, template, subject, sessionId }
       console.error('❌ Failed to send email via Resend:', err.message);
     }
   } else {
-    console.log(`📧 [Simulated Email: ${template}] → ${emailTo} (session: ${sessionId})`);
-    console.log(`⚠️  Set RESEND_API_KEY to send real emails.`);
+    console.log(`📧 [Simulated: ${template}] → ${emailTo} (no RESEND_API_KEY set)`);
     providerId = 'simulated';
   }
 
-  await logEmailSent(orderId, { emailTo, template, subject, providerId });
+  await logEmailSent(orderId, { emailTo, template, subject: finalSubject, providerId });
 }
 
 // ---------------------------------------------------------------------------
@@ -296,10 +378,14 @@ const intakeSchema = z.object({
   entries: z.array(z.object({
     itemKey:         z.string(),
     mode:            z.enum(['direct', 'bridge']),
-    targetUrl:       z.string().url(),
+    targetUrl:       z.string().url().optional().or(z.literal('')),
     slug:            z.string().optional().nullable(),
     destinationType: z.string().optional().default('other'),
     brief:           z.string().optional().nullable(),
+    links:           z.array(z.object({
+      title: z.string(),
+      url:   z.string().url()
+    })).optional(),
   })),
 });
 
@@ -565,8 +651,38 @@ const EDITION_PROMPTS = {
   },
 };
 
+// Verification helper for AI QR Codes
+async function verifyQrCode(imageUrl, expectedUrl) {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) throw new Error('Failed to fetch image');
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const sharp = (await import('sharp')).default;
+    const { data, info } = await sharp(buffer)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+      
+    const jsQR = (await import('jsqr')).default;
+    const clampedArray = new Uint8ClampedArray(data.buffer, data.byteOffset, data.length);
+    const code = jsQR(clampedArray, info.width, info.height);
+    
+    if (code) {
+      console.log(`✅ Scan verification passed. Decoded: ${code.data}`);
+      return true;
+    }
+    console.log('❌ Scan verification failed: QR could not be found or read.');
+    return false;
+  } catch (err) {
+    console.error('❌ Error verifying QR:', err.message);
+    return false;
+  }
+}
+
 // Fire-and-forget: generate AI art QR via Monster Labs ControlNet (andreasjansson/qrcode on Replicate)
-async function generateAndStoreArtQr(slug, tier = 'business') {
+async function generateAndStoreArtQr(slug, tier = 'business', maxRetries = 3) {
   if (!process.env.REPLICATE_API_TOKEN) {
     console.log(`⚠️  REPLICATE_API_TOKEN not set — skipping AI QR for "${slug}"`);
     return;
@@ -586,30 +702,38 @@ async function generateAndStoreArtQr(slug, tier = 'business') {
     const Replicate = (await import('replicate')).default;
     const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
 
-    // andreasjansson/qrcode — Monster Labs control_v1p_sd15_qrcode_monster
-    // Tuned: high conditioning scale keeps the QR scannable while the scene wraps around it
-    const output = await replicate.run('andreasjansson/qrcode', {
-      input: {
-        prompt,
-        negative_prompt,
-        qr_code_content:               qrUrl,
-        controlnet_conditioning_scale: 1.9,
-        guidance_scale:                7.5,
-        num_inference_steps:           40,
-        width:                         768,
-        height:                        768,
-        border:                        1,
-        qrcode_background:             'gray',
-        seed:                          Math.floor(Math.random() * 2147483647),
-      },
-    });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      console.log(`⏳ Attempt ${attempt}/${maxRetries}...`);
+      const output = await replicate.run('andreasjansson/qrcode', {
+        input: {
+          prompt,
+          negative_prompt,
+          qr_code_content:               qrUrl,
+          controlnet_conditioning_scale: 1.9,
+          guidance_scale:                7.5,
+          num_inference_steps:           40,
+          width:                         768,
+          height:                        768,
+          border:                        1,
+          qrcode_background:             'gray',
+          seed:                          Math.floor(Math.random() * 2147483647),
+        },
+      });
 
-    // output is an array of file URLs from Replicate
-    const resultUrl = Array.isArray(output) ? output[0] : output;
-    if (!resultUrl) throw new Error('Replicate returned no output.');
+      // output is an array of file URLs from Replicate
+      const resultUrl = Array.isArray(output) ? output[0] : output;
+      if (!resultUrl) throw new Error('Replicate returned no output.');
 
-    await saveArtQrUrl(slug, String(resultUrl));
-    console.log(`✅ Monster Labs art QR for "${slug}" stored: ${resultUrl}`);
+      const isValid = await verifyQrCode(resultUrl, qrUrl);
+      if (isValid) {
+        await saveArtQrUrl(slug, String(resultUrl));
+        console.log(`✅ Monster Labs art QR for "${slug}" stored: ${resultUrl}`);
+        return;
+      } else if (attempt === maxRetries) {
+        console.log(`⚠️ Max retries reached for "${slug}". Saving last attempt despite validation failure.`);
+        await saveArtQrUrl(slug, String(resultUrl));
+      }
+    }
   } catch (err) {
     console.error(`❌ AI QR generation failed for "${slug}":`, err.message);
   }
@@ -845,6 +969,43 @@ app.patch('/api/members/bridges/:slug', apiLimiter, async (req, res) => {
   }
 });
 
+// POST /api/members/bridges/:slug/regenerate-art — trigger AI QR regeneration
+app.post('/api/members/bridges/:slug/regenerate-art', apiLimiter, async (req, res) => {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+    // Verify ownership and get tier
+    const { data: bridge } = await supabase
+      .from('bridges')
+      .select('id, owner_id, orders!bridges_order_id_fk(customer_email, items)')
+      .eq('slug', req.params.slug)
+      .single();
+
+    if (!bridge) return res.status(404).json({ error: 'Bridge not found.' });
+
+    const isOwner  = bridge.owner_id === user.id;
+    const isCustomer = bridge.orders?.customer_email === user.email;
+    if (!isOwner && !isCustomer) return res.status(403).json({ error: 'Not your bridge.' });
+
+    // Reset current QR art to null to indicate processing
+    await supabase.from('bridges').update({ qr_art_url: null }).eq('slug', req.params.slug);
+
+    const tier = bridge.orders?.items?.[0]?.tier || 'business';
+    
+    // Fire and forget
+    generateAndStoreArtQr(req.params.slug, tier).catch(console.error);
+
+    res.json({ success: true, message: 'Regeneration started.' });
+  } catch (err) {
+    console.error('❌ Bridge regenerate error:', err.message);
+    res.status(500).json({ error: 'Could not start regeneration.' });
+  }
+});
+
 // Webhook from print-on-demand supplier (Printful / Gelato)
 app.post('/api/pod-webhook', async (req, res) => {
   // TODO: Validate HMAC signature from POD provider
@@ -864,14 +1025,178 @@ app.post('/api/pod-webhook', async (req, res) => {
           estimatedDelivery: order.estimated_delivery,
           shippedAt:       new Date().toISOString(),
         });
-        await saveOrderRecord({ ...dbOrder, status: 'shipped' });
+        const shippedRecord = { ...dbOrder, status: 'shipped' };
+        await saveOrderRecord(shippedRecord);
         console.log(`📦 Order ${order.external_id} shipped.`);
+
+        // Notify customer
+        const email = shippedRecord.contactEmail;
+        if (email) {
+          sendOrderEmail(shippedRecord._dbId || order.external_id, {
+            emailTo:       email,
+            template:      'shipped',
+            sessionId:     order.external_id,
+            trackingUrl:   order.tracking_url,
+            trackingNumber:order.tracking_number,
+            carrier:       order.carrier,
+          }).catch(console.error);
+        }
       }
     }
     res.json({ received: true });
   } catch (err) {
     console.error('❌ POD webhook error:', err.message);
     res.status(500).json({ error: 'Webhook processing failed.' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ADMIN — Premium bridge destination update
+// Used when a custom-built page is ready and needs to replace #pending-build
+// ---------------------------------------------------------------------------
+app.patch('/api/admin/bridges/:slug/destination', adminLimiter, async (req, res) => {
+  if (req.headers['x-admin-password'] !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+
+  const { targetUrl, notifyCustomer } = req.body;
+  if (!targetUrl) return res.status(400).json({ error: 'targetUrl is required.' });
+  try { new URL(targetUrl); } catch { return res.status(400).json({ error: 'Invalid URL.' }); }
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+    // Update the bridge destination
+    const { error } = await supabase
+      .from('bridges')
+      .update({ target_url: targetUrl, updated_at: new Date().toISOString() })
+      .eq('slug', req.params.slug);
+    if (error) throw error;
+
+    console.log(`✅ Bridge "${req.params.slug}" destination set to ${targetUrl}`);
+
+    // Optionally notify customer
+    if (notifyCustomer) {
+      const { data: bridge } = await supabase
+        .from('bridges')
+        .select('orders!bridges_order_id_fk(stripe_session_id, customer_email, id)')
+        .eq('slug', req.params.slug)
+        .single();
+
+      const order = bridge?.orders;
+      if (order?.customer_email) {
+        sendOrderEmail(order.id || order.stripe_session_id, {
+          emailTo:   order.customer_email,
+          template:  'page-live',
+          sessionId: order.stripe_session_id,
+        }).catch(console.error);
+      }
+    }
+
+    res.json({ success: true, slug: req.params.slug, targetUrl });
+  } catch (err) {
+    console.error('❌ Bridge destination update error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ADMIN — Manual supplier notification
+// Sends print file link + order details to a supplier email address
+// ---------------------------------------------------------------------------
+app.post('/api/admin/orders/:sessionId/notify-supplier', adminLimiter, async (req, res) => {
+  if (req.headers['x-admin-password'] !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+
+  const { supplierEmail } = req.body;
+  if (!supplierEmail) return res.status(400).json({ error: 'supplierEmail is required.' });
+
+  try {
+    const record  = await getOrderRecord(req.params.sessionId);
+    if (!record) return res.status(404).json({ error: 'Order not found.' });
+
+    const intake  = record.intake?.entries?.[0];
+    const item    = record.items?.[0] || {};
+    const shortId = req.params.sessionId.slice(-6).toUpperCase();
+    const base    = process.env.PUBLIC_URL || 'https://qonnect.work';
+    const printUrl = record.printAssetUrl ? `${base}${record.printAssetUrl}` : null;
+
+    const detailRows = [
+      `<tr><td style="padding:6px 0;color:#888;font-size:13px;">Order ID</td><td style="padding:6px 0;color:#f0ece0;font-size:13px;font-weight:600;">#${shortId}</td></tr>`,
+      `<tr><td style="padding:6px 0;color:#888;font-size:13px;">Customer</td><td style="padding:6px 0;color:#f0ece0;font-size:13px;">${record.contactEmail || '—'}</td></tr>`,
+      `<tr><td style="padding:6px 0;color:#888;font-size:13px;">Edition</td><td style="padding:6px 0;color:#f0ece0;font-size:13px;">${item.title || '—'}</td></tr>`,
+      `<tr><td style="padding:6px 0;color:#888;font-size:13px;">Tier</td><td style="padding:6px 0;color:#f0ece0;font-size:13px;text-transform:uppercase;">${item.tier || '—'}</td></tr>`,
+      `<tr><td style="padding:6px 0;color:#888;font-size:13px;">Mode</td><td style="padding:6px 0;color:#f0ece0;font-size:13px;text-transform:uppercase;">${intake?.mode || '—'}</td></tr>`,
+      `<tr><td style="padding:6px 0;color:#888;font-size:13px;">QR Slug</td><td style="padding:6px 0;color:#f0ece0;font-size:13px;">${intake?.mode === 'bridge' ? `${base}/b/${intake.slug}` : 'Direct URL (no slug)'}</td></tr>`,
+    ].join('');
+
+    const html = buildEmailHtml({
+      title: `Print order #${shortId} — QONNECT`,
+      orderId: null,
+      body: `<p>Please find the print specifications for QONNECT order <strong style="color:#f0ece0;">#${shortId}</strong> below.</p>
+             <table style="width:100%;border-collapse:collapse;margin:24px 0;">${detailRows}</table>
+             ${printUrl ? `<p>The print-ready composite file is attached below. Please use this file for garment production.</p>` : '<p style="color:#c0392b;">⚠️ Print file not yet generated — check admin dashboard.</p>'}`,
+      ctaText: printUrl ? 'Download Print File' : null,
+      ctaUrl: printUrl,
+      footerNote: `Reference: ${req.params.sessionId}`,
+    });
+
+    if (process.env.RESEND_API_KEY) {
+      const { Resend } = await import('resend');
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const { error } = await resend.emails.send({
+        from: `QONNECT Production <orders@${new URL(base).hostname}>`,
+        to: supplierEmail,
+        subject: `QONNECT Print Order #${shortId} — ${item.title || 'Garment'}`,
+        html,
+      });
+      if (error) throw new Error(error.message);
+      console.log(`✅ Supplier notified: ${supplierEmail} for order #${shortId}`);
+    } else {
+      console.log(`📧 [Simulated supplier email] → ${supplierEmail} for order #${shortId}`);
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Supplier notify error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// MEMBERS — All orders by email (including direct-link orders with no bridge)
+// ---------------------------------------------------------------------------
+app.get('/api/members/orders', apiLimiter, async (req, res) => {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select('stripe_session_id, status, payment_status, items, customer_email, intake_data, print_asset_url, created_at')
+      .eq('customer_email', user.email)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json((data || []).map(row => ({
+      sessionId:     row.stripe_session_id,
+      shortOrderId:  row.stripe_session_id?.slice(-6).toUpperCase(),
+      status:        row.status,
+      paymentStatus: row.payment_status,
+      items:         row.items || [],
+      intake:        row.intake_data || null,
+      printAssetUrl: row.print_asset_url || null,
+      createdAt:     row.created_at,
+    })));
+  } catch (err) {
+    console.error('❌ Members orders error:', err.message);
+    res.status(500).json({ error: 'Could not load your orders.' });
   }
 });
 
@@ -902,6 +1227,51 @@ app.post('/api/auth/claim-bridge', apiLimiter, async (req, res) => {
     console.error('❌ Auth fatal:', err.message);
     res.status(500).json({ error: 'Authentication service unavailable.' });
   }
+});
+
+// ---------------------------------------------------------------------------
+// SOCIAL CRAWLERS / OPENGRAPH (Task 4)
+// ---------------------------------------------------------------------------
+app.get('/b/:slug', async (req, res, next) => {
+  const ua = req.headers['user-agent'] || '';
+  const isBot = /bot|crawler|spider|linkedin|twitter|facebook|whatsapp|skype|telegram|imessage/i.test(ua);
+  
+  if (isBot) {
+    const { slug } = req.params;
+    try {
+      const dest = await findDestinationBySlug(slug);
+      if (!dest) return next(); // Not found, let React handle 404
+      
+      let title = `Digital Bridge: ${slug}`;
+      if (dest.type === 'template' && dest.brief) {
+          const firstLine = dest.brief.split('\n')[0].trim();
+          if (firstLine && firstLine.length < 60) title = `${firstLine}'s QONNECT Bridge`;
+      }
+      
+      const aiQr = await getArtQrUrl(slug);
+      const base = process.env.PUBLIC_URL || 'https://qonnect.ai';
+      const imageUrl = aiQr || `${base}/api/qr/${slug}.png?size=1024`;
+      
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="Scan to connect. Bridging the physical and digital world.">
+  <meta property="og:image" content="${imageUrl}">
+  <meta property="og:url" content="${base}/b/${slug}">
+  <meta property="og:type" content="profile">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:image" content="${imageUrl}">
+</head>
+<body></body>
+</html>`;
+      return res.send(html);
+    } catch (err) {
+      console.error('OG Tag error:', err);
+    }
+  }
+  next();
 });
 
 // ---------------------------------------------------------------------------
