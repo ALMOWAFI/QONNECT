@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Package,
   Download,
@@ -9,10 +9,16 @@ import {
   Mail,
   Link,
   X,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { toast } from "sonner";
+import { BusinessTemplate } from "@/components/templates/BusinessTemplate";
+import { TechTemplate } from "@/components/templates/TechTemplate";
+import { MedTemplate } from "@/components/templates/MedTemplate";
+import type { TemplateData } from "@/components/templates/TechTemplate";
 
 const AdminDashboard = () => {
   const [activeTab, setStatusFilter] = useState("all");
@@ -21,10 +27,19 @@ const AdminDashboard = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [notifyingId, setNotifyingId] = useState<string | null>(null);
-  const [liveUrlModal, setLiveUrlModal] = useState<{ slug: string; sessionId: string } | null>(null);
-  const [liveUrl, setLiveUrl] = useState("");
-  const [settingLiveUrl, setSettingLiveUrl] = useState(false);
   const [shippingModal, setShippingModal] = useState<any | null>(null);
+
+  // Page builder modal
+  const [builderModal, setBuilderModal] = useState<{ slug: string; sessionId: string } | null>(null);
+  const [builderTab, setBuilderTab] = useState<'page' | 'redirect'>('page');
+  const [builderName, setBuilderName] = useState('');
+  const [builderTitle, setBuilderTitle] = useState('');
+  const [builderBio, setBuilderBio] = useState('');
+  const [builderEdition, setBuilderEdition] = useState<'business' | 'tech' | 'medical'>('business');
+  const [builderLinks, setBuilderLinks] = useState<{ title: string; url: string }[]>([{ title: '', url: '' }]);
+  const [builderRedirectUrl, setBuilderRedirectUrl] = useState('');
+  const [publishing, setPublishing] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -140,28 +155,56 @@ ${order.shipping?.address?.country || ''}
     }
   };
 
-  const setLiveUrlForBridge = async () => {
-    if (!liveUrlModal || !liveUrl) return;
-    setSettingLiveUrl(true);
+  const openBuilder = (slug: string, sessionId: string) => {
+    setBuilderModal({ slug, sessionId });
+    setBuilderTab('page');
+    setBuilderName('');
+    setBuilderTitle('');
+    setBuilderBio('');
+    setBuilderEdition('business');
+    setBuilderLinks([{ title: '', url: '' }]);
+    setBuilderRedirectUrl('');
+    setShowPreview(false);
+  };
+
+  const publishTemplate = async () => {
+    if (!builderModal) return;
+    setPublishing(true);
     try {
       const password = sessionStorage.getItem("qonnect-admin-pw");
-      const response = await fetch(`/api/admin/bridges/${liveUrlModal.slug}/destination`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(password ? { "x-admin-password": password } : {})
-        },
-        body: JSON.stringify({ targetUrl: liveUrl, notifyCustomer: true })
-      });
-      if (!response.ok) throw new Error((await response.json()).error);
-      toast.success("Bridge updated and customer notified.");
-      setLiveUrlModal(null);
-      setLiveUrl("");
+      if (builderTab === 'redirect') {
+        if (!builderRedirectUrl) { toast.error('Enter a URL.'); return; }
+        const res = await fetch(`/api/admin/bridges/${builderModal.slug}/destination`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...(password ? { "x-admin-password": password } : {}) },
+          body: JSON.stringify({ targetUrl: builderRedirectUrl, notifyCustomer: true }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+        toast.success("Redirect set and customer notified.");
+      } else {
+        if (!builderName.trim()) { toast.error('Name is required.'); return; }
+        const validLinks = builderLinks.filter(l => l.title && l.url);
+        const res = await fetch(`/api/admin/bridges/${builderModal.slug}/template`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...(password ? { "x-admin-password": password } : {}) },
+          body: JSON.stringify({
+            name: builderName.trim(),
+            title: builderTitle.trim(),
+            bio: builderBio.trim(),
+            edition: builderEdition,
+            links: validLinks,
+            notifyCustomer: true,
+          }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+        toast.success("Page published and customer notified.");
+      }
+      setBuilderModal(null);
       fetchOrders();
     } catch (err: any) {
-      toast.error(err.message || "Failed to update bridge.");
+      toast.error(err.message || "Failed to publish.");
     } finally {
-      setSettingLiveUrl(false);
+      setPublishing(false);
     }
   };
 
@@ -344,15 +387,12 @@ ${order.shipping?.address?.country || ''}
                               </button>
                             )}
 
-                            {/* Set live URL for premium #pending-build orders */}
+                            {/* Page builder for premium #pending-build orders */}
                             {order.intake?.entries?.[0]?.targetUrl === '#pending-build' && order.intake?.entries?.[0]?.slug && (
                               <button
-                                onClick={() => {
-                                  setLiveUrlModal({ slug: order.intake.entries[0].slug, sessionId: order.sessionId });
-                                  setLiveUrl("");
-                                }}
+                                onClick={() => openBuilder(order.intake.entries[0].slug, order.sessionId)}
                                 className="btn-transparent !py-2 !px-3 text-[9px] border-primary/40 text-primary"
-                                title="Set live URL for this premium page"
+                                title="Build & publish customer page"
                               >
                                 <Link className="w-3 h-3" />
                               </button>
@@ -401,47 +441,224 @@ ${order.shipping?.address?.country || ''}
         </div>
       )}
 
-      {/* Set Live URL modal */}
-      {liveUrlModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-background border border-border w-full max-w-md p-8 space-y-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="eyebrow text-[10px] mb-1">Set Live URL</p>
-                <h2 className="text-lg font-light">Bridge: <span className="font-medium">{liveUrlModal.slug}</span></h2>
+      {/* Page Builder Modal */}
+      {builderModal && (() => {
+        const previewData: TemplateData = {
+          slug: builderModal.slug,
+          brief: [builderName, builderTitle, builderBio].filter(Boolean).join('\n'),
+          targetUrl: builderLinks.find(l => l.url)?.url || '#',
+          destinationType: 'custom-page',
+          edition: builderEdition,
+          contactEmail: null,
+          links: builderLinks.filter(l => l.title && l.url),
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+            <div className="bg-background border border-border w-full max-w-5xl my-4 animate-in zoom-in-95 duration-300">
+              {/* Header */}
+              <div className="flex items-center justify-between px-8 py-5 border-b border-border">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-0.5">Page Builder</p>
+                  <h2 className="text-lg font-light">Bridge: <span className="font-mono text-primary">{builderModal.slug}</span></h2>
+                </div>
+                <button onClick={() => setBuilderModal(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button onClick={() => setLiveUrlModal(null)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Final destination URL</label>
-              <input
-                type="url"
-                value={liveUrl}
-                onChange={e => setLiveUrl(e.target.value)}
-                placeholder="https://custompage.qonnect.work/..."
-                className="w-full bg-transparent border border-border px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-foreground/50 transition-colors"
-                autoFocus
-              />
-              <p className="text-[10px] text-muted-foreground">Customer will be notified by email that their page is live.</p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setLiveUrlModal(null)}
-                className="flex-1 btn-transparent !py-2 text-[10px]"
-              >Cancel</button>
-              <button
-                onClick={setLiveUrlForBridge}
-                disabled={!liveUrl || settingLiveUrl}
-                className="flex-1 btn-filled !py-2 text-[10px]"
-              >
-                {settingLiveUrl ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : "Set Live & Notify"}
-              </button>
+
+              {/* Tabs */}
+              <div className="flex border-b border-border">
+                {(['page', 'redirect'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setBuilderTab(tab)}
+                    className={`px-6 py-3 text-[10px] uppercase tracking-[0.2em] transition-colors border-b-2 -mb-px ${
+                      builderTab === tab
+                        ? 'border-primary text-foreground'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {tab === 'page' ? 'Build Custom Page' : 'Redirect to URL'}
+                  </button>
+                ))}
+              </div>
+
+              {builderTab === 'redirect' ? (
+                <div className="p-8 space-y-6 max-w-lg">
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Destination URL</label>
+                    <input
+                      type="url"
+                      value={builderRedirectUrl}
+                      onChange={e => setBuilderRedirectUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full bg-transparent border border-border px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-foreground/50 transition-colors"
+                      autoFocus
+                    />
+                    <p className="text-[10px] text-muted-foreground">Customer will be notified when you publish.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setBuilderModal(null)} className="flex-1 btn-transparent !py-2 text-[10px]">Cancel</button>
+                    <button
+                      onClick={publishTemplate}
+                      disabled={!builderRedirectUrl || publishing}
+                      className="flex-1 btn-filled !py-2 text-[10px]"
+                    >
+                      {publishing ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Set Live & Notify'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col lg:flex-row">
+                  {/* Form panel */}
+                  <div className="flex-none lg:w-80 xl:w-96 border-b lg:border-b-0 lg:border-r border-border p-6 space-y-5 overflow-y-auto max-h-[70vh] lg:max-h-none">
+                    {/* Edition */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Edition</label>
+                      <div className="flex gap-2">
+                        {(['business', 'tech', 'medical'] as const).map(ed => (
+                          <button
+                            key={ed}
+                            onClick={() => setBuilderEdition(ed)}
+                            className={`flex-1 py-2 text-[9px] uppercase tracking-[0.15em] border transition-colors ${
+                              builderEdition === ed
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-border text-muted-foreground hover:border-foreground/30'
+                            }`}
+                          >
+                            {ed}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Name */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                        Name <span className="text-destructive">*</span>
+                      </label>
+                      <input
+                        value={builderName}
+                        onChange={e => setBuilderName(e.target.value)}
+                        placeholder={builderEdition === 'tech' ? 'Alex Chen' : builderEdition === 'medical' ? 'Dr. Sarah Kim' : 'Jordan Miller'}
+                        className="w-full bg-transparent border-b border-border py-2 text-sm focus:outline-none focus:border-foreground/50 transition-colors placeholder:text-muted-foreground/30"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Title */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                        {builderEdition === 'tech' ? 'Role / Stack' : builderEdition === 'medical' ? 'Specialty' : 'Title / Role'}
+                      </label>
+                      <input
+                        value={builderTitle}
+                        onChange={e => setBuilderTitle(e.target.value)}
+                        placeholder={builderEdition === 'tech' ? 'Senior Engineer · React / Go' : builderEdition === 'medical' ? 'Cardiology · FACC' : 'Head of Strategy'}
+                        className="w-full bg-transparent border-b border-border py-2 text-sm focus:outline-none focus:border-foreground/50 transition-colors placeholder:text-muted-foreground/30"
+                      />
+                    </div>
+
+                    {/* Bio */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Bio</label>
+                      <textarea
+                        value={builderBio}
+                        onChange={e => setBuilderBio(e.target.value)}
+                        placeholder="A short description that appears on the card…"
+                        rows={3}
+                        className="w-full bg-transparent border border-border px-3 py-2 text-sm resize-none focus:outline-none focus:border-foreground/50 transition-colors placeholder:text-muted-foreground/30"
+                      />
+                    </div>
+
+                    {/* Links */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Links</label>
+                      <div className="space-y-2">
+                        {builderLinks.map((link, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <input
+                              value={link.title}
+                              onChange={e => {
+                                const updated = [...builderLinks];
+                                updated[idx] = { ...updated[idx], title: e.target.value };
+                                setBuilderLinks(updated);
+                              }}
+                              placeholder="Label"
+                              className="w-24 bg-transparent border-b border-border py-1.5 text-xs focus:outline-none focus:border-foreground/50 transition-colors placeholder:text-muted-foreground/30"
+                            />
+                            <input
+                              value={link.url}
+                              onChange={e => {
+                                const updated = [...builderLinks];
+                                updated[idx] = { ...updated[idx], url: e.target.value };
+                                setBuilderLinks(updated);
+                              }}
+                              placeholder="https://..."
+                              className="flex-1 bg-transparent border-b border-border py-1.5 text-xs font-mono focus:outline-none focus:border-foreground/50 transition-colors placeholder:text-muted-foreground/30"
+                            />
+                            <button
+                              onClick={() => setBuilderLinks(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setBuilderLinks(prev => [...prev, { title: '', url: '' }])}
+                        className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors mt-1"
+                      >
+                        <Plus className="w-3 h-3" /> Add Link
+                      </button>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-2">
+                      <button onClick={() => setBuilderModal(null)} className="flex-1 btn-transparent !py-2 text-[10px]">Cancel</button>
+                      <button
+                        onClick={publishTemplate}
+                        disabled={!builderName.trim() || publishing}
+                        className="flex-1 btn-filled !py-2 text-[10px]"
+                      >
+                        {publishing ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Publish & Notify'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Live Preview panel */}
+                  <div className="flex-1 bg-[#0a0a0a] flex flex-col items-center justify-start p-6 min-h-[400px] lg:min-h-0 overflow-hidden relative">
+                    <p className="text-[9px] uppercase tracking-[0.3em] text-white/20 mb-4 self-start">Live Preview</p>
+                    <div className="relative w-full flex justify-center overflow-hidden" style={{ height: '520px' }}>
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: '50%',
+                          transform: 'translateX(-50%) scale(0.72)',
+                          transformOrigin: 'top center',
+                          width: '375px',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        {builderEdition === 'tech'
+                          ? <TechTemplate data={previewData} />
+                          : builderEdition === 'medical'
+                          ? <MedTemplate data={previewData} />
+                          : <BusinessTemplate data={previewData} />
+                        }
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-white/10 mt-2 tracking-widest">Updates as you type</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <Footer />
     </div>

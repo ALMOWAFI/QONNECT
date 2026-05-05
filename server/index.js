@@ -27,6 +27,7 @@ import {
   updateOrderStatus,
   saveArtQrUrl,
   getArtQrUrl,
+  updateBridgeTemplate,
 } from './orderStore.js';
 
 // ---------------------------------------------------------------------------
@@ -505,35 +506,42 @@ app.post('/api/orders/:sessionId/intake', apiLimiter, async (req, res) => {
       }
     }
 
-    // Auto-composite print asset for every order with bridge mode entries
+    // Auto-composite print asset for EVERY bridge entry in the order
     // Fire-and-forget — does not block the intake response
     ;(async () => {
       try {
-        const bridgeEntry = normalizedEntries.find(e => e.mode === 'bridge' && e.slug);
-        if (!bridgeEntry) return; // direct-link orders have no slug to embed
-
-        const tier = updatedRecord.items?.find(i => i.itemKey === bridgeEntry.itemKey)?.tier
-          || updatedRecord.items?.[0]?.tier
-          || 'business';
-
-        // Wait for the AI art generation so the compositor actually has it
-        await generateAndStoreArtQr(bridgeEntry.slug, tier);
+        const bridgeEntries = normalizedEntries.filter(e => e.mode === 'bridge' && e.slug);
+        if (!bridgeEntries.length) return; // direct-link only order
 
         const { generateCompositeAsset } = await import('./compositor.js');
-        const item      = updatedRecord.items?.[0] || {};
-        const edition   = item.title || 'default';
-        const assetPath = await generateCompositeAsset(sessionId, edition, bridgeEntry.slug);
-
-        // Persist the path on the order row in Supabase
         const { createClient } = await import('@supabase/supabase-js');
         const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-        const { error: dbError } = await supabase
-          .from('orders')
-          .update({ print_asset_url: assetPath })
-          .eq('stripe_session_id', sessionId);
-        if (dbError) console.error('❌ Failed to save print_asset_url to DB:', dbError.message);
+        let lastAssetPath = null;
 
-        console.log(`🖨️  Print asset auto-generated for order ${sessionId}: ${assetPath}`);
+        for (const bridgeEntry of bridgeEntries) {
+          const tier = updatedRecord.items?.find(i => i.itemKey === bridgeEntry.itemKey)?.tier
+            || updatedRecord.items?.[0]?.tier
+            || 'business';
+
+          // AI QR generation per bridge
+          await generateAndStoreArtQr(bridgeEntry.slug, tier);
+
+          const item      = updatedRecord.items?.find(i => i.itemKey === bridgeEntry.itemKey) || updatedRecord.items?.[0] || {};
+          const edition   = item.title || 'default';
+          const assetPath = await generateCompositeAsset(sessionId, edition, bridgeEntry.slug);
+          lastAssetPath   = assetPath;
+
+          console.log(`🖨️  Print asset generated for bridge "${bridgeEntry.slug}": ${assetPath}`);
+        }
+
+        // Store the last (or only) asset URL on the order row
+        if (lastAssetPath) {
+          const { error: dbError } = await supabase
+            .from('orders')
+            .update({ print_asset_url: lastAssetPath })
+            .eq('stripe_session_id', sessionId);
+          if (dbError) console.error('❌ Failed to save print_asset_url:', dbError.message);
+        }
       } catch (err) {
         console.error('❌ Auto-compositor error (non-fatal):', err.message);
       }
@@ -946,7 +954,7 @@ app.get('/api/members/bridges', apiLimiter, async (req, res) => {
     const { data: userOrders } = await supabase
       .from('orders')
       .select('id')
-      .eq('customer_email', user.email);
+      .ilike('customer_email', user.email); // case-insensitive match
 
     const orderIds = (userOrders || []).map(o => o.id);
 
@@ -961,7 +969,10 @@ app.get('/api/members/bridges', apiLimiter, async (req, res) => {
         id, slug, target_url, destination_type, mode, template_data,
         is_active, scan_count, created_at, updated_at,
         orders!bridges_order_id_fk (
-          stripe_session_id, status, payment_status, items, customer_email
+          id, stripe_session_id, status, payment_status, items, customer_email,
+          shipments (
+            carrier, tracking_number, tracking_url, status, estimated_delivery
+          )
         )
       `)
       .or(orFilter)
@@ -983,6 +994,7 @@ app.get('/api/members/bridges', apiLimiter, async (req, res) => {
         targetUrl:       bridge.target_url,
         destinationType: bridge.destination_type,
         mode:            bridge.mode,
+        template_data:   bridge.template_data,
         isActive:        bridge.is_active,
         createdAt:       bridge.created_at,
         order: bridge.orders ? {
@@ -990,6 +1002,7 @@ app.get('/api/members/bridges', apiLimiter, async (req, res) => {
           status:        bridge.orders.status,
           paymentStatus: bridge.orders.payment_status,
           items:         bridge.orders.items || [],
+          shipment:      bridge.orders.shipments?.[0] || null,
         } : null,
         analytics: analytics || {
           total_scans: bridge.scan_count || 0,
@@ -1010,28 +1023,25 @@ app.get('/api/members/bridges', apiLimiter, async (req, res) => {
   }
 });
 
-// PATCH /api/members/bridges/:slug — update destination URL
+// PATCH /api/members/bridges/:slug — update configuration
 app.patch('/api/members/bridges/:slug', apiLimiter, async (req, res) => {
   const user = await requireAuth(req, res);
   if (!user) return;
 
-  const { targetUrl } = req.body;
-  if (!targetUrl) return res.status(400).json({ error: 'targetUrl is required.' });
-
-  try {
-    new URL(targetUrl); // validate URL
-  } catch {
-    return res.status(400).json({ error: 'Invalid URL.' });
+  const { targetUrl, links, brief } = req.body;
+  
+  if (targetUrl) {
+    try { new URL(targetUrl); } catch { return res.status(400).json({ error: 'Invalid URL.' }); }
   }
 
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-    // Verify this bridge belongs to this user (via owner_id or order email)
+    // Verify ownership
     const { data: bridge } = await supabase
       .from('bridges')
-      .select('id, owner_id, orders!bridges_order_id_fk(customer_email)')
+      .select('id, owner_id, template_data, orders!bridges_order_id_fk(customer_email)')
       .eq('slug', req.params.slug)
       .single();
 
@@ -1041,16 +1051,28 @@ app.patch('/api/members/bridges/:slug', apiLimiter, async (req, res) => {
     const isCustomer = bridge.orders?.customer_email === user.email;
     if (!isOwner && !isCustomer) return res.status(403).json({ error: 'Not your bridge.' });
 
+    const updates = { updated_at: new Date().toISOString() };
+    if (targetUrl !== undefined) updates.target_url = targetUrl;
+    
+    // Update template_data if links or brief provided
+    if (links !== undefined || brief !== undefined) {
+      updates.template_data = {
+        ...(bridge.template_data || {}),
+        ...(links !== undefined ? { links } : {}),
+        ...(brief !== undefined ? { brief } : {}),
+      };
+    }
+
     const { error } = await supabase
       .from('bridges')
-      .update({ target_url: targetUrl, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq('slug', req.params.slug);
 
     if (error) throw error;
-    res.json({ success: true, slug: req.params.slug, targetUrl });
+    res.json({ success: true, slug: req.params.slug, updates });
   } catch (err) {
     console.error('❌ Bridge update error:', err.message);
-    res.status(500).json({ error: 'Could not update bridge.' });
+    res.status(500).json({ error: 'Could not update configuration.' });
   }
 });
 
@@ -1235,6 +1257,46 @@ app.patch('/api/admin/bridges/:slug/destination', adminLimiter, async (req, res)
     res.json({ success: true, slug: req.params.slug, targetUrl });
   } catch (err) {
     console.error('❌ Bridge destination update error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ADMIN — Premium page builder: save template data and publish
+// ---------------------------------------------------------------------------
+app.put('/api/admin/bridges/:slug/template', adminLimiter, async (req, res) => {
+  if (req.headers['x-admin-password'] !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+
+  const { name, title, bio, edition, links, notifyCustomer } = req.body;
+  if (!name) return res.status(400).json({ error: 'name is required.' });
+
+  try {
+    await updateBridgeTemplate(req.params.slug, { name, title, bio, edition: edition || 'business', links: links || [] });
+    console.log(`✅ Template published for bridge "${req.params.slug}" (${edition})`);
+
+    if (notifyCustomer) {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+      const { data: bridge } = await supabase
+        .from('bridges')
+        .select('orders!bridges_order_id_fk(stripe_session_id, customer_email, id)')
+        .eq('slug', req.params.slug)
+        .single();
+      const order = bridge?.orders;
+      if (order?.customer_email) {
+        sendOrderEmail(order.id || order.stripe_session_id, {
+          emailTo:   order.customer_email,
+          template:  'page-live',
+          sessionId: order.stripe_session_id,
+        }).catch(console.error);
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Template publish error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

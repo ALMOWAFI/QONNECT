@@ -274,6 +274,22 @@ export async function writeBridge(entry, orderId) {
   if (error) console.error('❌ Supabase writeBridge:', error.message);
 }
 
+// Save full template data for a premium custom-page bridge
+export async function updateBridgeTemplate(slug, { name, title, bio, edition, links }) {
+  if (!supabase) return;
+  const brief = [name, title, bio].filter(Boolean).join('\n');
+  const { error } = await supabase
+    .from('bridges')
+    .update({
+      destination_type: 'custom-page',
+      target_url:       '#template',
+      template_data:    { brief, edition, links: links || [], name, title, bio },
+      updated_at:       new Date().toISOString(),
+    })
+    .eq('slug', slug);
+  if (error) throw new Error(error.message);
+}
+
 // Store the AI-generated art QR URL back onto the bridge row
 export async function saveArtQrUrl(slug, url) {
   if (!supabase) return;

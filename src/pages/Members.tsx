@@ -27,6 +27,10 @@ interface Bridge {
   mode:            string;
   isActive:        boolean;
   createdAt:       string;
+  template_data?: {
+    links?: { title: string; url: string }[];
+    brief?: string;
+  };
   order: {
     sessionId:     string;
     status:        string;
@@ -52,13 +56,28 @@ function trendSign(n: number) {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
-function EditForm({ bridge, onSaved }: { bridge: Bridge; onSaved: (url: string) => void }) {
-  const [url, setUrl]         = useState(bridge.targetUrl);
-  const [saving, setSaving]   = useState(false);
-  const session_ref           = bridge.order?.sessionId;
+function AdvancedManagement({ 
+  bridge, 
+  onSaved, 
+  onCancel 
+}: { 
+  bridge: Bridge; 
+  onSaved: (updates: Partial<Bridge>) => void;
+  onCancel: () => void;
+}) {
+  const [targetUrl, setTargetUrl] = useState(bridge.targetUrl);
+  const [links, setLinks]         = useState<{title: string, url: string}[]>(
+    bridge.template_data?.links || []
+  );
+  const [saving, setSaving] = useState(false);
 
-  const save = async () => {
-    try { new URL(url); } catch { toast.error("Enter a valid URL."); return; }
+  const isLinktree = bridge.destinationType === 'linktree';
+
+  const handleSave = async () => {
+    if (!isLinktree) {
+      try { new URL(targetUrl); } catch { toast.error("Enter a valid URL."); return; }
+    }
+    
     setSaving(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -68,34 +87,92 @@ function EditForm({ bridge, onSaved }: { bridge: Bridge; onSaved: (url: string) 
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ targetUrl: url }),
+        body: JSON.stringify({ 
+          targetUrl: isLinktree ? "" : targetUrl,
+          links: isLinktree ? links : undefined
+        }),
       });
-      if (!res.ok) throw new Error((await res.json()).error);
-      onSaved(url);
-      toast.success("Bridge updated. Your QR now points to the new destination.");
-    } catch (err: any) {
-      toast.error(err.message || "Could not update bridge.");
+      if (!res.ok) throw new Error("Sync failed.");
+      
+      onSaved({ targetUrl: isLinktree ? "" : targetUrl, template_data: { ...bridge.template_data, links } });
+      toast.success("Identity synchronized with the cloud.");
+    } catch {
+      toast.error("Cloud synchronization failed.");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="mt-6 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-      <input
-        type="url"
-        value={url}
-        onChange={e => setUrl(e.target.value)}
-        className="flex-1 bg-transparent border-b border-primary/50 py-3 text-base font-serif focus:outline-none focus:border-primary transition-all"
-        placeholder="https://newdestination.com"
-        autoFocus
-      />
+    <div className="mt-8 space-y-8 p-6 border border-primary/10 bg-primary/[0.01] animate-in fade-in slide-in-from-top-4 duration-500">
+      <div className="flex justify-between items-center border-b border-border/40 pb-4">
+        <h3 className="display text-[10px] font-medium uppercase tracking-[0.3em] text-primary/60">Digital Configuration</h3>
+        <button onClick={onCancel} className="text-[9px] uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">Discard</button>
+      </div>
+
+      {!isLinktree ? (
+        <div className="space-y-4">
+          <label className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground block">Primary Resolution</label>
+          <input
+            type="url"
+            value={targetUrl}
+            onChange={e => setTargetUrl(e.target.value)}
+            className="w-full bg-transparent border-b border-border py-4 font-serif text-xl focus:outline-none focus:border-primary/50 transition-all placeholder:text-muted-foreground/10"
+            placeholder="https://yourworld.com"
+            autoFocus
+          />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <label className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground">Network Directory</label>
+            <button 
+              onClick={() => setLinks([...links, {title: "", url: ""}])}
+              className="text-[9px] uppercase tracking-[0.2em] text-primary hover:text-primary/70 transition-colors flex items-center gap-1.5"
+            ><Plus className="w-3 h-3"/> Add Resource</button>
+          </div>
+          <div className="space-y-4">
+            {links.map((link, idx) => (
+              <div key={idx} className="flex gap-3 items-center group animate-in fade-in duration-300">
+                <input
+                  placeholder="Label"
+                  value={link.title}
+                  onChange={e => {
+                    const nl = [...links];
+                    nl[idx].title = e.target.value;
+                    setLinks(nl);
+                  }}
+                  className="w-1/3 bg-background/50 border border-border/60 px-4 py-3 text-xs focus:outline-none focus:border-primary/30 transition-colors"
+                />
+                <input
+                  placeholder="https://"
+                  value={link.url}
+                  onChange={e => {
+                    const nl = [...links];
+                    nl[idx].url = e.target.value;
+                    setLinks(nl);
+                  }}
+                  className="flex-1 bg-background/50 border border-border/60 px-4 py-3 text-xs focus:outline-none focus:border-primary/30 transition-colors"
+                />
+                <button 
+                  onClick={() => setLinks(links.filter((_, i) => i !== idx))}
+                  className="text-muted-foreground/30 hover:text-destructive transition-colors"
+                ><X className="w-4 h-4" /></button>
+              </div>
+            ))}
+            {links.length === 0 && <p className="text-[10px] text-muted-foreground italic text-center py-4">No links assigned yet.</p>}
+          </div>
+        </div>
+      )}
+
       <button
-        onClick={save}
+        onClick={handleSave}
         disabled={saving}
-        className="flex h-9 w-9 items-center justify-center border border-primary/30 bg-primary/5 text-primary transition-all duration-200 hover:bg-primary/10 active:scale-95"
+        className="w-full btn-filled !py-5 flex items-center justify-center gap-2 group transition-all"
       >
-        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+          <>Secure Identity <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" /></>
+        )}
       </button>
     </div>
   );
@@ -291,6 +368,8 @@ function BridgeCard({ bridge: initial }: { bridge: Bridge }) {
   const [editing, setEditing] = useState(false);
 
   const handleSaved = (newUrl: string) => {
+    // Note: ideally we'd refresh the whole bridge object from the server here
+    // but for now we just update the targetUrl in the local state.
     setBridge(b => ({ ...b, targetUrl: newUrl }));
     setEditing(false);
   };
@@ -329,26 +408,71 @@ function BridgeCard({ bridge: initial }: { bridge: Bridge }) {
             </h2>
           </div>
 
-          <div>
-            <p className="text-[9px] uppercase tracking-[0.3em] text-muted-foreground mb-2">Current destination</p>
-            <div className="flex items-center gap-3 group/link">
-              <p className="text-muted-foreground font-serif text-lg truncate max-w-md">{bridge.targetUrl}</p>
-              <a href={bridge.targetUrl} target="_blank" rel="noopener noreferrer"
-                className="text-primary opacity-0 group-hover/link:opacity-100 transition-opacity duration-200">
-                <ExternalLink className="w-4 h-4" />
-              </a>
+          {!editing && (
+            <div>
+              <p className="text-[9px] uppercase tracking-[0.3em] text-muted-foreground mb-2">Current destination</p>
+              <div className="flex items-center gap-3 group/link">
+                <p className="text-muted-foreground font-serif text-lg truncate max-w-md">
+                  {bridge.destinationType === 'linktree' ? 'Multi-Link Directory' : bridge.targetUrl}
+                </p>
+                {bridge.targetUrl && (
+                  <a href={bridge.targetUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-primary opacity-0 group-hover/link:opacity-100 transition-opacity duration-200">
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Shipment tracking */}
+          {bridge.order?.shipment && (
+            <div className="pt-4 border-t border-border/30">
+              <p className="text-[9px] uppercase tracking-[0.3em] text-muted-foreground mb-3 flex items-center gap-2">
+                <Package className="w-3 h-3 text-primary" /> Logistical Tracking
+              </p>
+              <div className="flex items-center gap-4">
+                <div>
+                  <p className="text-xs font-medium text-foreground">{bridge.order.shipment.carrier || 'Standard Shipping'}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{bridge.order.shipment.tracking_number || 'Processing...'}</p>
+                </div>
+                {bridge.order.shipment.tracking_url && (
+                  <a 
+                    href={bridge.order.shipment.tracking_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[9px] uppercase tracking-widest text-primary border border-primary/20 px-3 py-1.5 hover:bg-primary/5 transition-all"
+                  >
+                    Track Shipment
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
           {editing ? (
-            <EditForm bridge={bridge} onSaved={handleSaved} />
+            <AdvancedManagement 
+              bridge={bridge} 
+              onSaved={handleSaved} 
+              onCancel={() => setEditing(false)} 
+            />
           ) : (
-            <button
-              onClick={() => setEditing(true)}
-              className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground border border-border px-4 py-2.5 transition-all duration-200 hover:border-foreground/30 hover:text-foreground active:scale-[0.97]"
-            >
-              <Edit2 className="w-3 h-3" /> Update destination
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground border border-border px-4 py-2.5 transition-all duration-200 hover:border-foreground/30 hover:text-foreground active:scale-[0.97]"
+              >
+                <Edit2 className="w-3 h-3" /> Configure Digital ID
+              </button>
+              {bridge.order?.sessionId && (
+                <a
+                  href={`/success?session_id=${bridge.order.sessionId}`}
+                  className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-muted-foreground border border-border/50 px-4 py-2.5 transition-all duration-200 hover:border-foreground/30 hover:text-foreground active:scale-[0.97]"
+                >
+                  <Scan className="w-3 h-3" /> Fulfillment Log
+                </a>
+              )}
+            </div>
           )}
         </div>
 

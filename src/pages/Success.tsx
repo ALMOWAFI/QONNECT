@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Loader2, ArrowRight, Download, QrCode } from "lucide-react";
 import { toast } from "sonner";
@@ -103,6 +103,7 @@ const Success = () => {
   const [order, setOrder] = useState<OrderSummary | null>(null);
   const [loading, setLoading] = useState(Boolean(sessionId));
   const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!sessionId) {
@@ -113,12 +114,26 @@ const Success = () => {
 
     let cancelled = false;
 
-    (async () => {
+    const fetchAndMaybePoll = async () => {
       try {
         const summary = await fetchOrderSummary(sessionId);
-        if (!cancelled) {
-          setOrder(summary);
-          setError(null);
+        if (cancelled) return;
+        setOrder(summary);
+        setError(null);
+
+        // If payment isn't confirmed yet, start polling every 5s until it is
+        if (summary.status.payment !== "paid") {
+          pollRef.current = setInterval(async () => {
+            try {
+              const refreshed = await fetchOrderSummary(sessionId);
+              if (cancelled) return;
+              setOrder(refreshed);
+              if (refreshed.status.payment === "paid") {
+                clearInterval(pollRef.current!);
+                pollRef.current = null;
+              }
+            } catch { /* keep polling */ }
+          }, 5000);
         }
       } catch (err) {
         console.error(err);
@@ -135,10 +150,13 @@ const Success = () => {
           setLoading(false);
         }
       }
-    })();
+    };
+
+    fetchAndMaybePoll();
 
     return () => {
       cancelled = true;
+      if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [sessionId]);
 
@@ -158,10 +176,15 @@ const Success = () => {
           <div className="mx-auto max-w-5xl">
             <div className="mb-16 text-center md:mb-24">
               <p className="eyebrow mb-6">Order handoff</p>
-              <h1 className="display-lg">Your order now needs its destination.</h1>
+              <h1 className="display-lg">
+                {order && order.status.payment !== "paid"
+                  ? "Confirming your payment."
+                  : "Your order now needs its destination."}
+              </h1>
               <p className="tagline mx-auto mt-8 max-w-2xl">
-                The payment is only step one. QONNECT becomes real when each
-                garment is attached to the digital place it is meant to open.
+                {order && order.status.payment !== "paid"
+                  ? "Hold tight — Stripe is confirming the transaction. The intake form will appear automatically once payment clears."
+                  : "The payment is only step one. QONNECT becomes real when each garment is attached to the digital place it is meant to open."}
               </p>
             </div>
 
@@ -176,6 +199,21 @@ const Success = () => {
                   <p className="mt-4 text-sm leading-7 text-muted-foreground">
                     {error}
                   </p>
+                </div>
+              ) : order && order.status.payment !== "paid" ? (
+                <div className="flex min-h-64 flex-col items-center justify-center gap-6 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
+                  <div>
+                    <p className="display text-2xl font-medium">Confirming your payment…</p>
+                    <p className="mt-3 text-sm leading-7 text-muted-foreground max-w-md mx-auto">
+                      Stripe is processing the transaction. This usually takes a few seconds. The intake form will unlock once payment is confirmed.
+                    </p>
+                  </div>
+                  {order.status.payment === "failed" || order.status.payment === "expired" ? (
+                    <p className="text-sm text-destructive">
+                      Payment {order.status.payment}. Please return to the store and try again.
+                    </p>
+                  ) : null}
                 </div>
               ) : order ? (
                 <>

@@ -28,21 +28,21 @@ const Footer = () => {
           </div>
 
           <div>
-            <h3 className="footer-header">Process</h3>
+            <h3 className="footer-header">Protocol</h3>
             <nav className="flex flex-col gap-2">
-              <a href="/success" className="footer-link">Intake after checkout</a>
-              <a href="mailto:hello@qonnect.com" className="footer-link">hello@qonnect.com</a>
-              <span className="footer-link">Print-on-demand fulfillment</span>
+              <a href="/members" className="footer-link">Identity Dashboard</a>
+              <a href="mailto:support@qonnect.work" className="footer-link font-mono">support@qonnect.work</a>
+              <span className="footer-link italic font-serif text-[11px]">Bespoke Fulfillment</span>
             </nav>
           </div>
         </div>
 
         <div className="mt-14 flex flex-col justify-between gap-2 border-t border-border pt-6 md:flex-row">
-          <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-            Copyright {year} QONNECT. All rights reserved.
+          <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+            &copy; {year} QONNECT ATELIER.
           </p>
-          <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-            Wear the conversation.
+          <p className="text-[10px] uppercase tracking-[0.25em] text-primary/60 font-medium">
+            Closer than a business card.
           </p>
         </div>
       </div>

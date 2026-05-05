@@ -12,7 +12,7 @@ import { QrCode, Package } from "lucide-react";
 import heroHoodie from "@/assets/hero-hoodie.png";
 
 const heroFacts = [
-  { value: "02", label: "Active editions" },
+  { value: "03", label: "Active editions" },
   { value: "01", label: "QR per hoodie" },
   { value: "0", label: "Inventory held" },
 ];

@@ -38,14 +38,14 @@ const FLAGSHIP_REGISTRY: Record<string, ProductDetail> = {
     title: "QONNECT Hoodie: Robotics Edition",
     handle: "robotics-edition",
     description: "A heavyweight hoodie designed for builders. Features the 'Digital Bridge' back print with technical-luxury aesthetics.\n\n· 450 GSM Heavyweight Cotton\n· Oversized unisex fit\n· Custom QR print on the back\n· High quality print",
-    priceRange: { minVariantPrice: { amount: "0.50", currencyCode: "EUR" } },
+    priceRange: { minVariantPrice: { amount: "160.00", currencyCode: "USD" } },
     images: { edges: [{ node: { url: techImage, altText: "Robotics Edition Hoodie" } }] },
     variants: {
       edges: [{
         node: {
           id: "gid://shopify/ProductVariant/v-tech",
           title: "Default Title",
-          price: { amount: "0.50", currencyCode: "EUR" },
+          price: { amount: "160.00", currencyCode: "USD" },
           availableForSale: true,
           selectedOptions: [{ name: "Title", value: "Default Title" }]
         }
@@ -106,13 +106,14 @@ const Product = () => {
     "basic" | "standard" | "premium"
   >("basic");
   const [brief, setBrief] = useState("");
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const addItem = useCartStore((s) => s.addItem);
   const isLoading = useCartStore((s) => s.isLoading);
 
   const tiers = [
-    { id: "basic",    name: "Basic",    price: 0,  desc: "QR links to your provided URL. Set your destination after checkout." },
-    { id: "standard", name: "Standard", price: 20, desc: "We build your Linktree-style page. Tell us what to include." },
-    { id: "premium",  name: "Premium",  price: 50, desc: "Full custom landing page. Our architects build it in 48h from your brief." },
+    { id: "basic",    name: "Basic",    price: 0,  desc: "QR links to your provided URL. Set your destination after checkout. Active immediately." },
+    { id: "standard", name: "Standard", price: 20, desc: "We build your Linktree-style page from your brief. Live within 24 hours of intake." },
+    { id: "premium",  name: "Premium",  price: 50, desc: "Full custom landing page built by our architects. Live within 48 hours of intake." },
   ] as const;
 
   const tierBriefConfig = {
@@ -184,6 +185,7 @@ const Product = () => {
       selectedOptions: [
         ...(selectedVariant.selectedOptions || []),
         { name: "Service Tier", value: selectedTier },
+        ...(selectedSize ? [{ name: "Size", value: selectedSize }] : []),
       ],
       brief: brief.trim() || undefined,
     });
@@ -360,13 +362,15 @@ const Product = () => {
 
                 <button
                   onClick={handleAdd}
-                  disabled={isLoading || !selectedVariant?.availableForSale}
+                  disabled={isLoading || !selectedVariant?.availableForSale || (!!product.options.find(o => o.name === 'Size') && !selectedSize)}
                   className="btn-filled mt-10 w-full disabled:opacity-50"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : !selectedVariant?.availableForSale ? (
                     "Sold out"
+                  ) : (product.options.find(o => o.name === 'Size') && !selectedSize) ? (
+                    "Select a size"
                   ) : (
                     "Add to cart"
                   )}

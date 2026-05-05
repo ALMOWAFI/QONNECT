@@ -46,6 +46,7 @@ function buildInitialEntries(
       destinationType: existing?.destinationType || "custom-page",
       // Pre-populate from cart brief if available
       brief: existing?.brief || item.brief || "",
+      links: [],
     };
   });
 }
@@ -57,7 +58,8 @@ function formatTierLabel(tier: string) {
 function renderSubmittedState(
   order: OrderSummary,
   intake: OrderIntakeSummary,
-  displayOrderId: string
+  displayOrderId: string,
+  onEdit: () => void
 ) {
   return (
     <div className="border border-foreground/10 bg-foreground/5 p-10 text-center animate-in fade-in zoom-in duration-700 md:p-16">
@@ -105,6 +107,13 @@ function renderSubmittedState(
           );
         })}
       </div>
+
+      <button
+        onClick={onEdit}
+        className="mt-8 text-[10px] uppercase tracking-[0.25em] text-muted-foreground hover:text-foreground transition-colors duration-200 border border-border/50 px-5 py-2.5 hover:border-foreground/30"
+      >
+        Edit setup
+      </button>
     </div>
   );
 }
@@ -205,6 +214,7 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
   );
   const [savedOrder, setSavedOrder] = useState<OrderSummary | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const activeOrder = savedOrder || order;
   const activeIntake = activeOrder.intake;
@@ -230,6 +240,14 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
       if (entry.itemKey !== itemKey) return entry;
       return { ...entry, links: entry.links.filter((_, idx) => idx !== linkIndex) };
     }));
+  };
+
+  const updateEntry = (itemKey: string, field: keyof EntryState, value: string) => {
+    setEntries(current =>
+      current.map(entry =>
+        entry.itemKey === itemKey ? { ...entry, [field]: value } : entry
+      )
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -317,8 +335,8 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
     }
   };
 
-  if (activeIntake) {
-    return renderSubmittedState(activeOrder, activeIntake, displayOrderId);
+  if (activeIntake && !isEditing) {
+    return renderSubmittedState(activeOrder, activeIntake, displayOrderId, () => setIsEditing(true));
   }
 
   return (
@@ -329,7 +347,7 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
           Define the <em className="italic">connection.</em>
         </h2>
         <p className="mt-4 text-lg italic text-muted-foreground">
-          Order #{displayOrderId} is paid. Now choose how you want to be discovered.
+          Order #{displayOrderId}. Now choose how you want to be discovered.
         </p>
       </div>
 

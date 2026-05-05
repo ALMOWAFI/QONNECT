@@ -104,7 +104,7 @@ const Login = () => {
               <p className="text-center text-[10px] text-muted-foreground uppercase tracking-[0.2em] leading-relaxed max-w-[280px] mx-auto opacity-40">
                 {isCheckout 
                   ? "We require an account before payment so you never lose access to your bridge."
-                  : "New here? Purchase a hoodie first to initialize your bridge."}
+                  : "Enter your email to access your bridge dashboard. No password needed."}
               </p>
             </form>
           )}
