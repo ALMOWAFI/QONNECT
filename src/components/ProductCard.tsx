@@ -11,19 +11,19 @@ export const ProductCard = ({ product }: Props) => {
   const addItem = useCartStore((s) => s.addItem);
   const isLoading = useCartStore((s) => s.isLoading);
   const node = product.node;
-  const variant = node.variants.edges[0]?.node;
-  const image = node.images.edges[0]?.node;
-  const price = node.priceRange.minVariantPrice;
+  const variant = node.variants?.edges?.[0]?.node;
+  const image = node.images?.edges?.[0]?.node;
+  const price = node.priceRange?.minVariantPrice;
 
   const handleAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!variant) return;
+    if (!variant || !price) return;
     await addItem({
       product,
       variantId: variant.id,
       variantTitle: variant.title,
-      price: variant.price,
+      price: variant.price || price,
       quantity: 1,
       selectedOptions: variant.selectedOptions || [],
     });
@@ -36,7 +36,7 @@ export const ProductCard = ({ product }: Props) => {
     >
       <div className="aspect-[4/5] overflow-hidden bg-muted relative">
         <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-        {image ? (
+        {image?.url ? (
           <img
             src={image.url}
             alt={image.altText || node.title}
@@ -53,7 +53,7 @@ export const ProductCard = ({ product }: Props) => {
         <div className="min-w-0">
           <h3 className="display text-xl font-medium truncate transition-colors duration-300 group-hover:text-primary">{node.title}</h3>
           <p className="text-xs text-muted-foreground mt-2 uppercase tracking-[0.1em] font-sans">
-            {price.currencyCode} {parseFloat(price.amount).toFixed(2)}
+            {price?.currencyCode || "USD"} {parseFloat(price?.amount || "0").toFixed(2)}
           </p>
         </div>
         <button

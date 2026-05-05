@@ -226,7 +226,7 @@ function QrPanel({ slug }: { slug: string }) {
     setRegenerating(true);
     setArtStatus("pending");
     setShowStandard(false);
-    toast.success("AI Art Regeneration started. This takes about 30 seconds.");
+    toast.success("AI Art Regeneration started. This usually takes 60–90 seconds.");
     try {
       const { data: { session } } = await supabase.auth.getSession();
       await fetch(`/api/members/bridges/${slug}/regenerate-art`, {
@@ -389,14 +389,20 @@ function BridgeCard({ bridge: initial }: { bridge: Bridge }) {
                 : bridge.destinationType}
             </span>
             <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.25em] text-primary">
-              <span className={`h-1.5 w-1.5 rounded-full ${bridge.order?.status === 'shipped' || bridge.order?.status === 'delivered' ? 'bg-green-500' : 'bg-primary animate-pulse'}`} />
+              <span className={`h-1.5 w-1.5 rounded-full ${
+                bridge.order?.status === 'shipped' || bridge.order?.status === 'delivered'
+                  ? 'bg-green-500'
+                  : bridge.order?.status === 'intake_required' || bridge.order?.status === 'pending_payment'
+                  ? 'bg-amber-400 animate-pulse'
+                  : 'bg-primary animate-pulse'
+              }`} />
               {
                 bridge.order?.status === 'pending_payment' ? 'Awaiting Payment' :
-                bridge.order?.status === 'intake_required' ? 'Action Req: Setup Identity' :
+                bridge.order?.status === 'intake_required' ? 'Setup Required' :
                 bridge.order?.status === 'ready_to_print' ? 'In the Atelier' :
-                bridge.order?.status === 'printing' ? 'Production in Progress' :
+                bridge.order?.status === 'printing' ? 'In Production' :
                 bridge.order?.status === 'shipped' ? 'In Transit' :
-                bridge.order?.status === 'delivered' ? 'Active' : 'Active'
+                bridge.order?.status === 'delivered' ? 'Delivered' : 'Active'
               }
             </span>
           </div>

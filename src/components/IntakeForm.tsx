@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { Loader2, CheckCircle2, Globe, ArrowRight, Check, X } from "lucide-react";
+import { Loader2, CheckCircle2, Globe, ArrowRight, Check, X, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   OrderSummary,
@@ -175,7 +175,7 @@ function SlugField({
   return (
     <div className="relative group pt-4 animate-in slide-in-from-top-4 duration-700">
       <label className="absolute top-0 left-0 text-[10px] uppercase tracking-[0.22em] text-primary/60 font-medium">
-        Choose your unique slug
+        Choose your unique slug <span className="text-amber-400 ml-1">· permanent, cannot be changed</span>
       </label>
       <div className="flex items-end border-b border-border focus-within:border-primary/50 transition-all">
         <span className="pointer-events-none text-primary/40 font-mono text-lg pb-[1.35rem] pr-1 whitespace-nowrap">
@@ -412,13 +412,21 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
                     </p>
                   </div>
 
-                  {/* Still need a slug for the bridge URL */}
-                  <SlugField
-                    slug={entry.slug}
-                    sessionId={order.sessionId}
-                    disabled={isSubmitting}
-                    onChange={(val) => updateEntry(item.itemKey, "slug", val)}
-                  />
+                  {/* Slug: the permanent URL where the built page will live */}
+                  <div className="border-t border-border/40 pt-8">
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-1">
+                      Your bridge URL <span className="text-amber-400">· permanent</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      This is the address where your custom page will live — the URL that anyone scanning your QR will reach. No URL needed from you; we build the page. Just choose your unique address.
+                    </p>
+                    <SlugField
+                      slug={entry.slug}
+                      sessionId={order.sessionId}
+                      disabled={isSubmitting}
+                      onChange={(val) => updateEntry(item.itemKey, "slug", val)}
+                    />
+                  </div>
                 </div>
               ) : (
                 /* ── BASIC / STANDARD: URL + optional mode + brief ── */
@@ -473,7 +481,7 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
                         className="w-full bg-transparent border-b border-border py-6 pl-12 pr-4 text-2xl font-serif focus:outline-none focus:border-foreground transition-all placeholder:text-muted-foreground/10"
                         required
                       />
-                      <label className="absolute -top-6 left-0 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Destination URL</label>
+                      <label className="absolute -top-6 left-0 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Primary Destination URL</label>
                     </div>
 
                     {entry.mode === "bridge" && (
@@ -483,6 +491,56 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
                         disabled={isSubmitting}
                         onChange={(val) => updateEntry(item.itemKey, "slug", val)}
                       />
+                    )}
+
+                    {/* Additional links — Standard tier gets a full link list on their bridge page */}
+                    {isStandard && entry.mode === "bridge" && (
+                      <div className="space-y-4 pt-2 border-t border-border/40">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                            Additional links <span className="opacity-50">(optional — shown on your bridge page)</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => addLink(item.itemKey)}
+                            className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.2em] text-primary hover:text-primary/70 transition-colors"
+                          >
+                            <Plus className="w-3 h-3" /> Add link
+                          </button>
+                        </div>
+                        {entry.links.length === 0 && (
+                          <p className="text-[10px] text-muted-foreground italic">
+                            Add links to GitHub, LinkedIn, your portfolio, etc. and we'll include them on your page.
+                          </p>
+                        )}
+                        {entry.links.map((link, idx) => (
+                          <div key={idx} className="flex gap-3 items-center animate-in fade-in duration-300">
+                            <input
+                              type="text"
+                              placeholder="Label (e.g. GitHub)"
+                              value={link.title}
+                              onChange={(e) => updateLink(item.itemKey, idx, "title", e.target.value)}
+                              className="w-1/3 border border-border bg-background/50 px-4 py-3 text-sm focus:outline-none focus:border-foreground/50 transition-colors"
+                              disabled={isSubmitting}
+                            />
+                            <input
+                              type="url"
+                              placeholder="https://"
+                              value={link.url}
+                              onChange={(e) => updateLink(item.itemKey, idx, "url", e.target.value)}
+                              className="flex-1 border border-border bg-background/50 px-4 py-3 text-sm focus:outline-none focus:border-foreground/50 transition-colors"
+                              disabled={isSubmitting}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeLink(item.itemKey, idx)}
+                              className="text-muted-foreground/40 hover:text-destructive transition-colors flex-shrink-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     )}
 
                     <div className="grid gap-10 md:grid-cols-[250px_1fr] pt-4">
@@ -519,6 +577,13 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
                           className="min-h-32 w-full border border-border bg-background/50 px-6 py-6 text-base leading-7 focus:outline-none focus:border-foreground placeholder:text-muted-foreground/20 italic"
                           disabled={isSubmitting}
                         />
+                        {isStandard && (
+                          <p className="mt-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                            {entry.brief.length < 20
+                              ? <span className="text-amber-400">{20 - entry.brief.length} more characters needed</span>
+                              : <span className="text-emerald-500">{entry.brief.length} chars · Good to go</span>}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -48,7 +48,7 @@ const Bridge = () => {
         if (isCancelled) return;
 
         if (!result) {
-          setError("This bridge hasn't been built yet.");
+          setError("not_found");
           return;
         }
 
@@ -65,18 +65,17 @@ const Bridge = () => {
         }
 
         if (result.type === "redirect" && result.destination) {
-          // The Digital Handshake: Add a deliberate, premium delay
           setTimeout(() => {
             if (!isCancelled) {
               window.location.href = result.destination!;
             }
-          }, 1500);
+          }, 800);
           return;
         }
 
-        setError("This bridge hasn't been built yet.");
+        setError("not_found");
       } catch {
-        if (!isCancelled) setError("Failed to connect to the world.");
+        if (!isCancelled) setError("connection_failed");
       }
     })();
 
@@ -131,9 +130,22 @@ const Bridge = () => {
           <div className="relative bg-background/50 border border-border/50 p-12 rounded-[2rem] backdrop-blur-md shadow-2xl">
             {error ? (
               <>
-                <Globe className="w-12 h-12 mx-auto text-destructive/50 mb-6" />
-                <h1 className="display text-2xl mb-4 text-destructive">Signal Lost.</h1>
-                <p className="text-sm text-muted-foreground leading-relaxed font-serif">{error}</p>
+                <Globe className="w-12 h-12 mx-auto text-muted-foreground/30 mb-6" />
+                {error === "not_found" ? (
+                  <>
+                    <h1 className="display text-2xl mb-4">Page not ready yet.</h1>
+                    <p className="text-sm text-muted-foreground leading-relaxed font-serif">
+                      This bridge hasn't been activated. If you ordered recently, your page will be live within 24–48 hours depending on your tier. Check your email for updates.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h1 className="display text-2xl mb-4">Connection failed.</h1>
+                    <p className="text-sm text-muted-foreground leading-relaxed font-serif">
+                      We couldn't reach the bridge server. Please try again in a moment.
+                    </p>
+                  </>
+                )}
                 <button onClick={() => navigate("/")} className="btn-transparent w-full mt-8">
                   Return Home
                 </button>

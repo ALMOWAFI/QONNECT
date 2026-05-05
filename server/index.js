@@ -793,19 +793,18 @@ async function generateAndStoreArtQr(slug, tier = 'business', maxRetries = 3) {
     const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      console.log(`⏳ Attempt ${attempt}/${maxRetries}...`);
-      const output = await replicate.run('andreasjansson/qrcode', {
+      console.log(`⏳ Attempt ${attempt}/${maxRetries} (SDXL Engine)...`);
+      // Upgraded to SDXL ControlNet for high-fidelity technical textures
+      const output = await replicate.run('lucataco/sdxl-controlnet-qr-pattern:0c8a74d5c4e97669d6715f532b2e88a09f8749a40879e612140e79435a28c312', {
         input: {
           prompt,
           negative_prompt,
           qr_code_content:               qrUrl,
-          controlnet_conditioning_scale: 1.9,
-          guidance_scale:                7.5,
-          num_inference_steps:           40,
-          width:                         768,
-          height:                        768,
-          border:                        1,
-          qrcode_background:             'gray',
+          controlnet_conditioning_scale: 1.7, // Slightly lower for SDXL to keep art crisp
+          guidance_scale:                9.0,
+          num_inference_steps:           30,
+          width:                         1024,
+          height:                        1024,
           seed:                          Math.floor(Math.random() * 2147483647),
         },
       });

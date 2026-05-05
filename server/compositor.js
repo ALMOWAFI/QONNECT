@@ -1,163 +1,170 @@
+/**
+ * QONNECT Compositor
+ *
+ * Exports two functions per order:
+ *
+ *  generatePrintFile(orderId, edition, slug)
+ *    → 3000×3000px standalone design at 300 DPI. Goes straight to the DTG supplier.
+ *
+ *  generateMockup(orderId, edition, slug)
+ *    → QR composited into the hoodie artwork photo. Used for customer preview,
+ *      admin panel, and order confirmation email.
+ */
+
 import sharp from 'sharp';
 import QRCode from 'qrcode';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import { getArtQrUrl } from './orderStore.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Source images are web mockups (not print-ready):
-//   hero-hoodie.png + tech-edition.png = 772x579px
-//   med-edition.png                    = 1200x896px
-//
-// The scaling logic mathematically adjusts the QR code size and position
-// based on the actual dimensions of the provided baseImage, allowing
-// seamless upgrading to 4000px+ 300DPI print files.
-const EDITION_CONFIG = {
-  'robotics': {
-    baseImage: '../src/assets/tech-edition.png',
-    baseWidth: 772,
-    qrSize: 95,
-    left: 153,
-    top: 228,
-    qrDark:  '#C9A86C',
-    qrLight: '#00000000',
-    maskType: 'circle',
-  },
-  'medicine': {
-    baseImage: '../src/assets/med-edition.png',
-    baseWidth: 1200,
-    qrSize: 125,
-    left: 228,
-    top: 422,
-    qrDark:  '#bbdefb',
-    qrLight: '#00000000',
-    maskType: 'circle',
-  },
-  'business': {
-    baseImage: '../src/assets/hero-hoodie.png',
-    baseWidth: 772,
-    qrSize: 90,
-    left: 180,
-    top: 227,
-    qrDark:  '#c8e6c9',
-    qrLight: '#00000000',
-    maskType: 'rounded',
-  },
-  'default': {
-    baseImage: '../src/assets/hero-hoodie.png',
-    baseWidth: 772,
-    qrSize: 90,
-    left: 180,
-    top: 227,
-    qrDark:  '#c8e6c9',
-    qrLight: '#00000000',
-    maskType: 'rounded',
-  }
+// ─── Edition configs ──────────────────────────────────────────────────────────
+
+const PRINT_CONFIG = {
+  robotics: { qrColor: '#C9A86C', textColor: '#C9A86C', tagline: 'SCAN TO BUILD THE FUTURE',       footer: 'QONNECT · ROBOTICS EDITION' },
+  business: { qrColor: '#C8E6C9', textColor: '#C8E6C9', tagline: 'SCAN TO CREATE VALUE',            footer: 'QONNECT · BUSINESS EDITION' },
+  medicine: { qrColor: '#BBDEFB', textColor: '#BBDEFB', tagline: 'SCAN TO HEAL · IMPACT · INSPIRE', footer: 'QONNECT · MEDICINE EDITION' },
+  default:  { qrColor: '#FFFFFF', textColor: '#FFFFFF', tagline: 'SCAN TO CONNECT',                 footer: 'QONNECT' },
 };
 
-/**
- * Generates a print-ready asset by compositing a QR code over the base edition design.
- */
-export async function generateCompositeAsset(orderId, edition, slug) {
-  const editionKey = String(edition).toLowerCase().includes('robotics') ? 'robotics'
-                   : String(edition).toLowerCase().includes('tech') ? 'robotics'
-                   : String(edition).toLowerCase().includes('medicine') ? 'medicine'
-                   : String(edition).toLowerCase().includes('business') ? 'business'
-                   : 'default';
+// cx/cy = center of QR placeholder circle in the hoodie photo (pixels)
+// size  = diameter to fill
+const MOCKUP_CONFIG = {
+  robotics: { baseImage: 'mockup-robotics.png', cx: 578, cy: 905, size: 320, qrColor: '#C9A86C', blend: 'screen' },
+  business: { baseImage: 'mockup-business.png', cx: 510, cy: 880, size: 300, qrColor: '#D4C5B0', blend: 'screen' },
+  medicine: { baseImage: 'mockup-medicine.png', cx: 658, cy: 893, size: 270, qrColor: '#BBDEFB', blend: 'screen' },
+  default:  { baseImage: 'mockup-business.png', cx: 510, cy: 880, size: 300, qrColor: '#FFFFFF',  blend: 'screen' },
+};
 
-  const config = EDITION_CONFIG[editionKey];
-  
+function resolveEdition(edition) {
+  const e = String(edition).toLowerCase();
+  if (e.includes('robotics') || e.includes('tech'))  return 'robotics';
+  if (e.includes('medicine') || e.includes('med'))   return 'medicine';
+  if (e.includes('business') || e.includes('biz'))   return 'business';
+  return 'default';
+}
+
+function buildQrUrl(slug) {
   const secret = process.env.QR_SECRET || 'qonnect-core-secret';
-  const hash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
-  const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}?s=${hash}`;
+  const hash   = crypto.createHmac('sha256', secret).update(slug).digest('hex').slice(0, 8);
+  return `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}?s=${hash}`;
+}
 
-  console.log(`🖼️  Auto-Compositing (High-Fidelity) ${editionKey} design for order ${orderId}`);
+async function uploadToStorage(buffer, fileName) {
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const { error } = await supabase.storage
+    .from('print-assets')
+    .upload(fileName, buffer, { contentType: 'image/png', upsert: true });
+  if (error) throw new Error(`Upload failed: ${error.message}`);
+  const { data: { publicUrl } } = supabase.storage.from('print-assets').getPublicUrl(fileName);
+  return publicUrl;
+}
 
-  try {
-    const baseImagePath = path.join(__dirname, config.baseImage);
-    if (!fs.existsSync(baseImagePath)) throw new Error(`Base image not found`);
+// ─── 1. Print file ────────────────────────────────────────────────────────────
+// Standalone 3000×3000px design. Transparent-ish near-black background so
+// the DTG supplier prints exactly what's here without guessing fill colour.
 
-    const metadata = await sharp(baseImagePath).metadata();
-    const scaleFactor = metadata.width / config.baseWidth;
-    
-    const scaledQrSize = Math.round(config.qrSize * scaleFactor);
-    const scaledLeft = Math.round(config.left * scaleFactor);
-    const scaledTop = Math.round(config.top * scaleFactor);
+const PRINT_SIZE = 3000;
+const QR_SIZE    = 1800;
+const QR_LEFT    = (PRINT_SIZE - QR_SIZE) / 2;
+const QR_TOP     = 400;
 
-    // 1. Generate/Fetch the QR source
-    let qrBuffer;
-    const aiArtUrl = await getArtQrUrl(slug);
+export async function generatePrintFile(orderId, edition, slug) {
+  const key    = resolveEdition(edition);
+  const config = PRINT_CONFIG[key];
+  const qrUrl  = buildQrUrl(slug);
 
-    if (aiArtUrl) {
-      console.log(`🎨 Fetching AI Art QR...`);
-      const response = await fetch(aiArtUrl);
-      if (!response.ok) throw new Error('Failed to fetch AI Art QR');
-      const arrayBuffer = await response.arrayBuffer();
-      qrBuffer = Buffer.from(arrayBuffer);
-    } else {
-      qrBuffer = await QRCode.toBuffer(qrUrl, {
-        width: scaledQrSize * 2, // Double res for high-fidelity resizing
-        margin: 1,
-        errorCorrectionLevel: 'H',
-        color: { dark: config.qrDark, light: config.qrLight }
-      });
-    }
+  console.log(`🖨️  Print file → ${key}/${slug}`);
 
-    // 2. Create the Mask (Circle or Rounded)
-    const radius = config.maskType === 'circle' ? scaledQrSize / 2 : Math.round(scaledQrSize * 0.08);
-    const mask = Buffer.from(
-      `<svg width="${scaledQrSize}" height="${scaledQrSize}">
-        ${config.maskType === 'circle' 
-          ? `<circle cx="${scaledQrSize/2}" cy="${scaledQrSize/2}" r="${scaledQrSize/2}" fill="white"/>`
-          : `<rect x="0" y="0" width="${scaledQrSize}" height="${scaledQrSize}" rx="${radius}" ry="${radius}" fill="white"/>`
-        }
-      </svg>`
-    );
+  const qrBuffer = await QRCode.toBuffer(qrUrl, {
+    width: QR_SIZE, margin: 1, errorCorrectionLevel: 'H',
+    color: { dark: config.qrColor, light: '#0a0a0a' },
+  });
 
-    // 3. Process the QR: Resize, Mask, and Add a subtle "Print Texture"
-    const processedQr = await sharp(qrBuffer)
-      .resize(scaledQrSize, scaledQrSize, { kernel: 'lanczos3' })
-      .composite([{ input: mask, blend: 'dest-in' }])
-      // Add very subtle noise to simulate fabric ink absorption
-      .modulate({ brightness: 1.02, saturation: 1.1 })
-      .png()
-      .toBuffer();
+  const taglineY = QR_TOP + QR_SIZE + 110;
+  const footerY  = PRINT_SIZE - 140;
 
-    // 4. Final Composite
-    const finalBuffer = await sharp(baseImagePath)
-      .composite([
-        {
-          input: processedQr,
-          top: scaledTop,
-          left: scaledLeft,
-          blend: 'over'
-        }
-      ])
-      .png({ quality: 100, compressionLevel: 9 })
-      .toBuffer();
+  const textSvg = Buffer.from(`
+    <svg width="${PRINT_SIZE}" height="${PRINT_SIZE}" xmlns="http://www.w3.org/2000/svg">
+      <text x="${PRINT_SIZE/2}" y="${taglineY}"
+        font-family="Arial,Helvetica,sans-serif" font-size="56" font-weight="700"
+        letter-spacing="14" fill="${config.textColor}" text-anchor="middle" opacity="0.85"
+      >${config.tagline}</text>
+      <text x="${PRINT_SIZE/2}" y="${footerY}"
+        font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="400"
+        letter-spacing="18" fill="${config.textColor}" text-anchor="middle" opacity="0.35"
+      >${config.footer}</text>
+      <text x="${PRINT_SIZE/2}" y="${footerY + 52}"
+        font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="400"
+        letter-spacing="10" fill="${config.textColor}" text-anchor="middle" opacity="0.22"
+      >qonnect.work/b/${slug}</text>
+    </svg>`);
 
-    // 5. Cloud Upload
-    const shortOrder = orderId.slice(-6).toUpperCase();
-    const fileName = `HI-RES_ORDER-${shortOrder}_${editionKey.toUpperCase()}_${Date.now()}.png`;
+  const finalBuffer = await sharp({
+    create: { width: PRINT_SIZE, height: PRINT_SIZE, channels: 3, background: { r: 10, g: 10, b: 10 } },
+  })
+    .composite([
+      { input: qrBuffer, top: QR_TOP, left: QR_LEFT },
+      { input: textSvg,  top: 0,      left: 0 },
+    ])
+    .png({ quality: 100, compressionLevel: 6 })
+    .toBuffer();
 
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const shortOrder = String(orderId).slice(-6).toUpperCase();
+  const fileName   = `PRINT_ORDER-${shortOrder}_${key.toUpperCase()}_${Date.now()}.png`;
+  const url        = await uploadToStorage(finalBuffer, fileName);
+  console.log(`✅ Print file ready: ${fileName}`);
+  return url;
+}
 
-    const { error: uploadError } = await supabase.storage
-      .from('print-assets')
-      .upload(fileName, finalBuffer, { contentType: 'image/png', upsert: true });
+// ─── 2. Mockup ────────────────────────────────────────────────────────────────
+// Customer-facing preview: the QR placed into the hoodie artwork placeholder.
+// Output is full-res mockup (same dimensions as the base photo).
 
-    if (uploadError) throw uploadError;
+export async function generateMockup(orderId, edition, slug) {
+  const key    = resolveEdition(edition);
+  const config = MOCKUP_CONFIG[key];
+  const qrUrl  = buildQrUrl(slug);
 
-    const { data: { publicUrl } } = supabase.storage.from('print-assets').getPublicUrl(fileName);
-    return publicUrl;
+  console.log(`🖼️  Mockup → ${key}/${slug}`);
 
-  } catch (error) {
-    console.error('❌ High-Fidelity Compositor Failed:', error.message);
-    throw error;
-  }
+  const baseImagePath = path.join(__dirname, config.baseImage);
+  const { width: W, height: H } = await sharp(baseImagePath).metadata();
+
+  // QR at placeholder size, colored modules on transparent background
+  const qrBuffer = await QRCode.toBuffer(qrUrl, {
+    width: config.size, margin: 0, errorCorrectionLevel: 'H',
+    color: { dark: config.qrColor, light: '#00000000' },
+  });
+
+  // Resize QR cleanly
+  const qrResized = await sharp(qrBuffer)
+    .resize(config.size, config.size, { kernel: 'lanczos3' })
+    .png()
+    .toBuffer();
+
+  const left = Math.round(config.cx - config.size / 2);
+  const top  = Math.round(config.cy - config.size / 2);
+
+  const finalBuffer = await sharp(baseImagePath)
+    .composite([{ input: qrResized, top, left, blend: config.blend }])
+    .png({ quality: 95, compressionLevel: 6 })
+    .toBuffer();
+
+  const shortOrder = String(orderId).slice(-6).toUpperCase();
+  const fileName   = `MOCKUP_ORDER-${shortOrder}_${key.toUpperCase()}_${Date.now()}.png`;
+  const url        = await uploadToStorage(finalBuffer, fileName);
+  console.log(`✅ Mockup ready: ${fileName}`);
+  return url;
+}
+
+// ─── Legacy alias (called from index.js webhook handler) ─────────────────────
+export async function generateCompositeAsset(orderId, edition, slug) {
+  const [printUrl, mockupUrl] = await Promise.all([
+    generatePrintFile(orderId, edition, slug),
+    generateMockup(orderId, edition, slug),
+  ]);
+  return { printUrl, mockupUrl };
 }

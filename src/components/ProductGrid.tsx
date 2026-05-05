@@ -19,14 +19,14 @@ const FLAGSHIP_PRODUCTS: ShopifyProduct[] = [
       title: "QONNECT Hoodie: Robotics Edition",
       handle: "robotics-edition",
       description: "A heavyweight hoodie designed for builders. Features the 'Digital Bridge' back print with technical-luxury aesthetics.",
-      priceRange: { minVariantPrice: { amount: "0.50", currencyCode: "EUR" } },
+      priceRange: { minVariantPrice: { amount: "160.00", currencyCode: "USD" } },
       images: { edges: [{ node: { url: techImage, altText: "Robotics Edition Hoodie" } }] },
       variants: {
         edges: [{
           node: {
             id: "gid://shopify/ProductVariant/v-tech",
             title: "Default Title",
-            price: { amount: "0.50", currencyCode: "EUR" },
+            price: { amount: "160.00", currencyCode: "USD" },
             availableForSale: true,
             selectedOptions: [{ name: "Title", value: "Default Title" }]
           }
@@ -98,7 +98,7 @@ const ProductGrid = () => {
           // Merge Shopify products with flagship products, removing duplicates by handle
           const allProducts = [...FLAGSHIP_PRODUCTS];
           shopifyProducts.forEach((sp: ShopifyProduct) => {
-            if (!allProducts.find(p => p.node.handle === sp.node.handle)) {
+            if (sp?.node?.handle && !allProducts.find(p => p.node?.handle === sp.node.handle)) {
               allProducts.push(sp);
             }
           });

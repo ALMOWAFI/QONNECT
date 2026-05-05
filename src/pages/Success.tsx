@@ -103,7 +103,9 @@ const Success = () => {
   const [order, setOrder] = useState<OrderSummary | null>(null);
   const [loading, setLoading] = useState(Boolean(sessionId));
   const [error, setError] = useState<string | null>(null);
+  const [paymentSlowWarn, setPaymentSlowWarn] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const slowWarnRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!sessionId) {
@@ -131,9 +133,14 @@ const Success = () => {
               if (refreshed.status.payment === "paid") {
                 clearInterval(pollRef.current!);
                 pollRef.current = null;
+                if (slowWarnRef.current) clearTimeout(slowWarnRef.current);
               }
             } catch { /* keep polling */ }
           }, 5000);
+          // After 30s still waiting, show a reassurance note
+          slowWarnRef.current = setTimeout(() => {
+            if (!cancelled) setPaymentSlowWarn(true);
+          }, 30000);
         }
       } catch (err) {
         console.error(err);
@@ -157,6 +164,7 @@ const Success = () => {
     return () => {
       cancelled = true;
       if (pollRef.current) clearInterval(pollRef.current);
+      if (slowWarnRef.current) clearTimeout(slowWarnRef.current);
     };
   }, [sessionId]);
 
@@ -202,18 +210,29 @@ const Success = () => {
                 </div>
               ) : order && order.status.payment !== "paid" ? (
                 <div className="flex min-h-64 flex-col items-center justify-center gap-6 text-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
+                  {order.status.payment !== "failed" && order.status.payment !== "expired" && (
+                    <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
+                  )}
                   <div>
-                    <p className="display text-2xl font-medium">Confirming your payment…</p>
+                    <p className="display text-2xl font-medium">
+                      {order.status.payment === "failed" ? "Payment failed." :
+                       order.status.payment === "expired" ? "Session expired." :
+                       "Confirming your payment…"}
+                    </p>
                     <p className="mt-3 text-sm leading-7 text-muted-foreground max-w-md mx-auto">
-                      Stripe is processing the transaction. This usually takes a few seconds. The intake form will unlock once payment is confirmed.
+                      {order.status.payment === "failed" || order.status.payment === "expired"
+                        ? "Please return to the store and try again. Nothing was charged."
+                        : "Stripe is processing the transaction. This usually takes a few seconds. The intake form will unlock automatically once confirmed."}
                     </p>
+                    {paymentSlowWarn && order.status.payment !== "failed" && order.status.payment !== "expired" && (
+                      <p className="mt-4 text-xs text-amber-400 max-w-sm mx-auto">
+                        Taking longer than usual. Your payment is still being processed — please don't close this tab. You'll also receive a confirmation email from Stripe.
+                      </p>
+                    )}
                   </div>
-                  {order.status.payment === "failed" || order.status.payment === "expired" ? (
-                    <p className="text-sm text-destructive">
-                      Payment {order.status.payment}. Please return to the store and try again.
-                    </p>
-                  ) : null}
+                  {(order.status.payment === "failed" || order.status.payment === "expired") && (
+                    <a href="/" className="btn-transparent">Return to store</a>
+                  )}
                 </div>
               ) : order ? (
                 <>
@@ -272,8 +291,8 @@ const Success = () => {
                       <p className="text-muted-foreground mb-10 max-w-md mx-auto italic font-serif text-lg">
                         We've sent an access link to your email. Click it anytime to manage your bridge, track scans, and update your destination URL.
                       </p>
-                      <a href="/login" className="btn-transparent !px-12 group inline-flex items-center">
-                        Go to My Bridge <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
+                      <a href="/members" className="btn-transparent !px-12 group inline-flex items-center">
+                        Go to My Dashboard <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
                       </a>
                     </div>
                   )}
@@ -303,7 +322,7 @@ const Success = () => {
                     <div>
                       <p className="eyebrow">Timeline</p>
                       <h2 className="display mt-4 text-3xl font-medium">
-                        What the system believes right now.
+                        Order history.
                       </h2>
                     </div>
                     <p className="text-sm leading-7 text-muted-foreground md:max-w-sm md:text-right">

@@ -142,17 +142,17 @@ const Product = () => {
           const fetchedProduct = data?.data?.product;
           setProduct(fetchedProduct);
           setSelectedVariantId(fetchedProduct?.variants?.edges?.[0]?.node?.id || null);
-        } else if (!cancelled && FLAGSHIP_REGISTRY[handle]) {
+        } else if (!cancelled && handle && FLAGSHIP_REGISTRY[handle]) {
           const fetchedProduct = FLAGSHIP_REGISTRY[handle];
           setProduct(fetchedProduct);
-          setSelectedVariantId(fetchedProduct.variants.edges[0].node.id);
+          setSelectedVariantId(fetchedProduct?.variants?.edges?.[0]?.node?.id || null);
         }
       } catch (err) {
         console.error("Shopify fetch failed, checking local registry.", err);
-        if (!cancelled && FLAGSHIP_REGISTRY[handle]) {
+        if (!cancelled && handle && FLAGSHIP_REGISTRY[handle]) {
           const fetchedProduct = FLAGSHIP_REGISTRY[handle];
           setProduct(fetchedProduct);
-          setSelectedVariantId(fetchedProduct.variants.edges[0].node.id);
+          setSelectedVariantId(fetchedProduct?.variants?.edges?.[0]?.node?.id || null);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -163,8 +163,8 @@ const Product = () => {
     };
   }, [handle]);
 
-  const selectedVariant = product?.variants.edges.find(
-    (variant) => variant.node.id === selectedVariantId,
+  const selectedVariant = product?.variants?.edges?.find(
+    (variant) => variant.node?.id === selectedVariantId,
   )?.node;
 
   const handleAdd = async () => {
@@ -178,7 +178,7 @@ const Product = () => {
         ...selectedVariant.price,
         amount: (
           parseFloat(selectedVariant.price.amount) +
-          tiers.find((tier) => tier.id === selectedTier)!.price
+          (tiers.find((tier) => tier.id === selectedTier)?.price || 0)
         ).toString(),
       },
       quantity: 1,
@@ -216,14 +216,18 @@ const Product = () => {
           ) : (
             <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:gap-16">
               <div className="space-y-4">
-                {product.images.edges.length > 0 ? (
+                {product.images?.edges?.length && product.images.edges.length > 0 ? (
                   product.images.edges.map((image, index) => (
                     <div key={index} className="aspect-[4/5] overflow-hidden bg-muted">
-                      <img
-                        src={image.node.url}
-                        alt={image.node.altText || product.title}
-                        className="h-full w-full object-cover"
-                      />
+                      {image.node?.url ? (
+                        <img
+                          src={image.node.url}
+                          alt={image.node.altText || product.title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[10px] uppercase tracking-widest text-muted-foreground">No image</div>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -237,10 +241,10 @@ const Product = () => {
                 <h1 className="display-md font-medium">{product.title}</h1>
                 <div className="mt-3 flex items-baseline gap-2">
                   <p className="text-lg text-muted-foreground">
-                    {product.priceRange.minVariantPrice.currencyCode}{" "}
+                    {product.priceRange?.minVariantPrice?.currencyCode || "USD"}{" "}
                     {(
-                      parseFloat(product.priceRange.minVariantPrice.amount) +
-                      tiers.find((tier) => tier.id === selectedTier)!.price
+                      parseFloat(product.priceRange?.minVariantPrice?.amount || "0") +
+                      (tiers.find((tier) => tier.id === selectedTier)?.price || 0)
                     ).toFixed(2)}
                   </p>
                   {selectedTier !== "basic" && (
@@ -257,9 +261,12 @@ const Product = () => {
                 )}
 
                 {/* Size Selection */}
-                {product.options.find(o => o.name === 'Size') && (
+                {product.options?.find(o => o.name === 'Size') && (
                   <div className="mt-10 border-t border-border pt-10">
-                    <p className="mb-4 nav-text">Select Size</p>
+                    <div className="mb-4 flex items-center gap-2">
+                      <p className="nav-text">Select Size</p>
+                      <span className="text-[9px] uppercase tracking-[0.2em] text-destructive">Required</span>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {product.options.find(o => o.name === 'Size')?.values.map((size) => (
                         <button
@@ -312,7 +319,7 @@ const Product = () => {
                 </div>
 
                 {/* Tier-contextual brief — shown for Standard + Premium */}
-                {tierBriefConfig[selectedTier].show && (
+                {tierBriefConfig[selectedTier]?.show && (
                   <div className="mt-8 border-t border-border pt-8 animate-in fade-in slide-in-from-top-2 duration-500">
                     {selectedTier === "premium" && (
                       <div className="mb-4 border border-primary/20 bg-primary/5 px-4 py-3">
@@ -338,22 +345,22 @@ const Product = () => {
                   </div>
                 )}
 
-                {product.variants.edges.length > 1 && (
+                {product.variants?.edges?.length > 1 && (
                   <div className="mt-8">
                     <p className="mb-3 nav-text">Variant</p>
                     <div className="flex flex-wrap gap-2">
                       {product.variants.edges.map((variant) => (
                         <button
-                          key={variant.node.id}
-                          onClick={() => setSelectedVariantId(variant.node.id)}
-                          disabled={!variant.node.availableForSale}
+                          key={variant.node?.id}
+                          onClick={() => setSelectedVariantId(variant.node?.id)}
+                          disabled={!variant.node?.availableForSale}
                           className={`border px-4 py-2 text-xs uppercase tracking-widest transition-colors ${
-                            selectedVariantId === variant.node.id
+                            selectedVariantId === variant.node?.id
                               ? "border-foreground bg-foreground text-background"
                               : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
                           } disabled:cursor-not-allowed disabled:opacity-40`}
                         >
-                          {variant.node.title}
+                          {variant.node?.title}
                         </button>
                       ))}
                     </div>
@@ -362,14 +369,14 @@ const Product = () => {
 
                 <button
                   onClick={handleAdd}
-                  disabled={isLoading || !selectedVariant?.availableForSale || (!!product.options.find(o => o.name === 'Size') && !selectedSize)}
+                  disabled={isLoading || !selectedVariant?.availableForSale || (!!product.options?.find(o => o.name === 'Size') && !selectedSize)}
                   className="btn-filled mt-10 w-full disabled:opacity-50"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : !selectedVariant?.availableForSale ? (
                     "Sold out"
-                  ) : (product.options.find(o => o.name === 'Size') && !selectedSize) ? (
+                  ) : (product.options?.find(o => o.name === 'Size') && !selectedSize) ? (
                     "Select a size"
                   ) : (
                     "Add to cart"
