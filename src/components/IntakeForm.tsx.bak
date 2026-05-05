@@ -19,7 +19,6 @@ interface EntryState {
   slug: string;
   destinationType: string;
   brief: string;
-  links: { title: string; url: string }[];
 }
 
 function buildInitialEntries(
@@ -209,27 +208,16 @@ export const IntakeForm = ({ order, onSubmitted }: IntakeFormProps) => {
   const activeOrder = savedOrder || order;
   const activeIntake = activeOrder.intake;
 
-  const addLink = (itemKey: string) => {
-    setEntries(current => current.map(entry => {
-      if (entry.itemKey !== itemKey) return entry;
-      return { ...entry, links: [...entry.links, { title: "", url: "" }] };
-    }));
-  };
-
-  const updateLink = (itemKey: string, linkIndex: number, field: 'title' | 'url', value: string) => {
-    setEntries(current => current.map(entry => {
-      if (entry.itemKey !== itemKey) return entry;
-      const newLinks = [...entry.links];
-      newLinks[linkIndex] = { ...newLinks[linkIndex], [field]: value };
-      return { ...entry, links: newLinks };
-    }));
-  };
-
-  const removeLink = (itemKey: string, linkIndex: number) => {
-    setEntries(current => current.map(entry => {
-      if (entry.itemKey !== itemKey) return entry;
-      return { ...entry, links: entry.links.filter((_, idx) => idx !== linkIndex) };
-    }));
+  const updateEntry = (
+    itemKey: string,
+    field: keyof EntryState,
+    value: string
+  ) => {
+    setEntries((current) =>
+      current.map((entry) =>
+        entry.itemKey === itemKey ? { ...entry, [field]: value } : entry
+      )
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -1,4 +1,4 @@
-import { ExternalLink, Briefcase, Linkedin, Globe, ArrowUpRight } from "lucide-react";
+import { ExternalLink, Briefcase, Linkedin, Globe, ArrowUpRight, ArrowRight } from "lucide-react";
 import type { TemplateData } from "./TechTemplate";
 
 function parseDisplayName(data: TemplateData): string {
@@ -15,11 +15,20 @@ function linkLabel(type: string): string {
   return 'Connect';
 }
 
+function DestinationIcon({ type, url }: { type: string, url?: string }) {
+  const t = url?.toLowerCase() || type?.toLowerCase() || '';
+  if (t.includes('linkedin')) return <Linkedin className="w-4 h-4" />;
+  if (t === 'portfolio' || type === 'portfolio') return <Globe className="w-4 h-4" />;
+  return <ArrowUpRight className="w-4 h-4" />;
+}
+
 export function BusinessTemplate({ data }: { data: TemplateData }) {
   const name = parseDisplayName(data);
   const briefLines = data.brief?.split('\n').filter(Boolean) ?? [];
   const title = briefLines.length > 1 ? briefLines[1]?.trim() : '';
   const bio = briefLines.length > 2 ? briefLines.slice(2).join(' ') : (briefLines[1] || '');
+
+  const hasLinks = data.links && data.links.length > 0;
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] text-white flex flex-col items-center justify-center p-6">
@@ -36,11 +45,11 @@ export function BusinessTemplate({ data }: { data: TemplateData }) {
         {/* Gold glow */}
         <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-b from-[#c9a96e]/30 via-transparent to-transparent pointer-events-none" />
 
-        <div className="relative rounded-2xl border border-[#c9a96e]/20 bg-[#111]/80 backdrop-blur-sm overflow-hidden">
+        <div className="relative rounded-2xl border border-[#c9a96e]/20 bg-[#111]/80 backdrop-blur-sm overflow-hidden flex flex-col max-h-[85vh]">
           {/* Top border accent */}
-          <div className="h-px bg-gradient-to-r from-transparent via-[#c9a96e]/60 to-transparent" />
+          <div className="h-px bg-gradient-to-r from-transparent via-[#c9a96e]/60 to-transparent shrink-0" />
 
-          <div className="px-8 py-10 space-y-8">
+          <div className="px-8 py-10 space-y-8 overflow-y-auto no-scrollbar">
             {/* Monogram + name */}
             <div className="space-y-5">
               <div className="flex items-center gap-3">
@@ -60,40 +69,77 @@ export function BusinessTemplate({ data }: { data: TemplateData }) {
 
             {/* Bio */}
             {bio && (
-              <>
-                <div className="w-8 h-px bg-[#c9a96e]/20" />
-                <p className="text-sm leading-7 text-white/50 font-light italic">{bio}</p>
-              </>
+              <div className="relative">
+                <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-[#c9a96e]/40 to-transparent" />
+                <p className="pl-4 text-sm leading-relaxed text-white/50 font-serif italic">"{bio}"</p>
+              </div>
             )}
 
-            {/* CTA */}
-            <a
-              href={data.targetUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center justify-between w-full border border-[#c9a96e]/20 px-5 py-4 transition-all duration-200 ease-out hover:border-[#c9a96e]/40 hover:bg-[#c9a96e]/5 active:scale-[0.97]"
-            >
-              <div>
-                <p className="text-sm font-light tracking-wide">{linkLabel(data.destinationType)}</p>
-                <p className="text-[10px] text-white/25 mt-0.5 truncate max-w-[180px]">{data.targetUrl.replace(/^https?:\/\//, '')}</p>
-              </div>
-              <ArrowUpRight className="w-4 h-4 text-[#c9a96e]/40 transition-all duration-200 group-hover:text-[#c9a96e]/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </a>
+            {/* Links Section */}
+            <div className="space-y-3 pt-2">
+              {hasLinks ? (
+                data.links!.map((link, idx) => (
+                  <a
+                    key={idx}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-between w-full border border-[#c9a96e]/20 bg-black/40 px-5 py-4 transition-all duration-200 ease-out hover:border-[#c9a96e]/40 hover:bg-[#c9a96e]/5 active:scale-[0.97]"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="text-[#c9a96e]/60 group-hover:text-[#c9a96e] transition-colors">
+                        <DestinationIcon type={data.destinationType} url={link.url} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-light tracking-wide">{link.title}</p>
+                        <p className="text-[10px] text-white/25 mt-0.5 truncate max-w-[160px]">{link.url.replace(/^https?:\/\//, '')}</p>
+                      </div>
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-[#c9a96e]/40 transition-all duration-200 group-hover:text-[#c9a96e]/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </a>
+                ))
+              ) : (
+                <a
+                  href={data.targetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center justify-between w-full border border-[#c9a96e]/20 bg-black/40 px-5 py-4 transition-all duration-200 ease-out hover:border-[#c9a96e]/40 hover:bg-[#c9a96e]/5 active:scale-[0.97]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="text-[#c9a96e]/60 group-hover:text-[#c9a96e] transition-colors">
+                      <DestinationIcon type={data.destinationType} url={data.targetUrl} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-light tracking-wide">{linkLabel(data.destinationType)}</p>
+                      <p className="text-[10px] text-white/25 mt-0.5 truncate max-w-[160px]">{data.targetUrl.replace(/^https?:\/\//, '')}</p>
+                    </div>
+                  </div>
+                  <ArrowUpRight className="w-4 h-4 text-[#c9a96e]/40 transition-all duration-200 group-hover:text-[#c9a96e]/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </a>
+              )}
+            </div>
           </div>
 
           {/* Bottom border accent */}
-          <div className="h-px bg-gradient-to-r from-transparent via-[#c9a96e]/20 to-transparent" />
+          <div className="h-px bg-gradient-to-r from-transparent via-[#c9a96e]/20 to-transparent shrink-0" />
 
-          <div className="px-8 py-4 flex items-center justify-between">
+          <div className="px-8 py-4 flex items-center justify-between shrink-0 bg-[#111]/90 backdrop-blur-md">
             <p className="text-[9px] uppercase tracking-[0.35em] text-white/15 font-light">QONNECT</p>
             <p className="text-[9px] text-white/15 font-mono">/{data.slug}</p>
           </div>
         </div>
       </div>
 
-      <p className="mt-8 text-[10px] uppercase tracking-[0.3em] text-white/10">
-        Scanned from a QONNECT garment
-      </p>
+      {/* Viral Loop CTA */}
+      <a 
+        href="/"
+        className="mt-8 flex items-center gap-2 group"
+      >
+        <p className="text-[10px] uppercase tracking-[0.3em] text-white/20 group-hover:text-[#c9a96e] transition-colors duration-300">
+          Get your own QONNECT Bridge
+        </p>
+        <ArrowRight className="w-3 h-3 text-white/20 group-hover:text-[#c9a96e] group-hover:translate-x-1 transition-all duration-300" />
+      </a>
     </div>
   );
 }
