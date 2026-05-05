@@ -153,6 +153,11 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
   const sig            = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+  // DEBUG — remove after confirming webhook works
+  console.log('🔔 Webhook hit — sig present:', !!sig, '| secret present:', !!endpointSecret);
+  console.log('🔔 Sig header:', sig?.slice(0, 60));
+  console.log('🔔 Body type:', typeof req.body, '| is Buffer:', Buffer.isBuffer(req.body), '| length:', req.body?.length);
+
   let event;
   try {
     if (endpointSecret && sig) {
