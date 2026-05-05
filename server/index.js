@@ -94,6 +94,7 @@ function buildOrderResponse(record) {
     })),
     intake:          record.intake || null,
     printAssetUrl:   record.printAssetUrl || null,
+    shipping:        record.shipping || null,
     status,
     timeline,
     createdAt:       record.createdAt,

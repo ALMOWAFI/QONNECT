@@ -254,6 +254,28 @@ const Product = () => {
                   </p>
                 )}
 
+                {/* Size Selection */}
+                {product.options.find(o => o.name === 'Size') && (
+                  <div className="mt-10 border-t border-border pt-10">
+                    <p className="mb-4 nav-text">Select Size</p>
+                    <div className="flex flex-wrap gap-2">
+                      {product.options.find(o => o.name === 'Size')?.values.map((size) => (
+                        <button
+                          key={size}
+                          onClick={() => setSelectedSize(size)}
+                          className={`flex h-12 w-12 items-center justify-center border transition-all duration-300 ${
+                            selectedSize === size
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-border text-muted-foreground hover:border-foreground/50"
+                          }`}
+                        >
+                          <span className="text-xs font-medium">{size}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="mt-10 border-t border-border pt-10">
                   <p className="mb-4 nav-text">Service Tier</p>
                   <div className="grid grid-cols-1 gap-3">

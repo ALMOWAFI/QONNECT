@@ -23,8 +23,9 @@ const EDITION_CONFIG = {
     qrSize: 95,
     left: 153,
     top: 228,
-    qrDark:  '#C9A86C', // Gold QR Code
-    qrLight: '#00000000', // Transparent background
+    qrDark:  '#C9A86C',
+    qrLight: '#00000000',
+    maskType: 'circle',
   },
   'medicine': {
     baseImage: '../src/assets/med-edition.png',
@@ -32,8 +33,9 @@ const EDITION_CONFIG = {
     qrSize: 125,
     left: 228,
     top: 422,
-    qrDark:  '#bbdefb', // Blue QR Code
-    qrLight: '#00000000', // Transparent background
+    qrDark:  '#bbdefb',
+    qrLight: '#00000000',
+    maskType: 'circle',
   },
   'business': {
     baseImage: '../src/assets/hero-hoodie.png',
@@ -41,8 +43,9 @@ const EDITION_CONFIG = {
     qrSize: 90,
     left: 180,
     top: 227,
-    qrDark:  '#c8e6c9', // Green QR Code
-    qrLight: '#00000000', // Transparent background
+    qrDark:  '#c8e6c9',
+    qrLight: '#00000000',
+    maskType: 'rounded',
   },
   'default': {
     baseImage: '../src/assets/hero-hoodie.png',
@@ -52,15 +55,12 @@ const EDITION_CONFIG = {
     top: 227,
     qrDark:  '#c8e6c9',
     qrLight: '#00000000',
+    maskType: 'rounded',
   }
 };
 
 /**
  * Generates a print-ready asset by compositing a QR code over the base edition design.
- * @param {string} orderId - The short order ID or session ID
- * @param {string} edition - The edition name (e.g., 'robotics', 'medicine')
- * @param {string} slug - The unique QONNECT slug for the QR code
- * @returns {Promise<string>} - The public URL of the generated image in Supabase Storage
  */
 export async function generateCompositeAsset(orderId, edition, slug) {
   const editionKey = String(edition).toLowerCase().includes('robotics') ? 'robotics'
@@ -75,96 +75,89 @@ export async function generateCompositeAsset(orderId, edition, slug) {
   const hash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
   const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}?s=${hash}`;
 
-  console.log(`🖼️ Auto-Compositing ${editionKey} design for order ${orderId} (Slug: ${slug})`);
+  console.log(`🖼️  Auto-Compositing (High-Fidelity) ${editionKey} design for order ${orderId}`);
 
   try {
     const baseImagePath = path.join(__dirname, config.baseImage);
-    if (!fs.existsSync(baseImagePath)) {
-        throw new Error(`Base image not found at ${baseImagePath}`);
-    }
+    if (!fs.existsSync(baseImagePath)) throw new Error(`Base image not found`);
 
-    // 1. Get actual dimensions of the base image to support dynamic high-res upgrades
     const metadata = await sharp(baseImagePath).metadata();
     const scaleFactor = metadata.width / config.baseWidth;
     
-    // Scale coordinates and size to match the actual image resolution
     const scaledQrSize = Math.round(config.qrSize * scaleFactor);
     const scaledLeft = Math.round(config.left * scaleFactor);
     const scaledTop = Math.round(config.top * scaleFactor);
 
-    // 2. Fetch the Monster Labs AI Art QR Code if available
+    // 1. Generate/Fetch the QR source
     let qrBuffer;
     const aiArtUrl = await getArtQrUrl(slug);
 
     if (aiArtUrl) {
-      console.log(`🎨 Fetching AI Art QR from: ${aiArtUrl}`);
+      console.log(`🎨 Fetching AI Art QR...`);
       const response = await fetch(aiArtUrl);
       if (!response.ok) throw new Error('Failed to fetch AI Art QR');
       const arrayBuffer = await response.arrayBuffer();
-      
-      const rounding = Math.round(scaledQrSize * 0.05); // 5% border radius
-      const mask = Buffer.from(
-        `<svg width="${scaledQrSize}" height="${scaledQrSize}">
-          <rect x="0" y="0" width="${scaledQrSize}" height="${scaledQrSize}" rx="${rounding}" ry="${rounding}" fill="white"/>
-        </svg>`
-      );
-
-      // Resize the AI image and apply the rounded mask so it integrates beautifully
-      qrBuffer = await sharp(Buffer.from(arrayBuffer))
-        .resize(scaledQrSize, scaledQrSize)
-        .composite([{ input: mask, blend: 'dest-in' }])
-        .png()
-        .toBuffer();
+      qrBuffer = Buffer.from(arrayBuffer);
     } else {
-      console.log(`⚠️ WARNING: AI Art QR not found for ${slug}, falling back to standard QR. The print will not have the artistic model applied.`);
       qrBuffer = await QRCode.toBuffer(qrUrl, {
-        width: scaledQrSize,
+        width: scaledQrSize * 2, // Double res for high-fidelity resizing
         margin: 1,
         errorCorrectionLevel: 'H',
-        color: {
-          dark:  config.qrDark,
-          light: config.qrLight,
-        }
+        color: { dark: config.qrDark, light: config.qrLight }
       });
     }
 
-    // 3. Composite and generate final buffer
-    const compositeBuffer = await sharp(baseImagePath)
+    // 2. Create the Mask (Circle or Rounded)
+    const radius = config.maskType === 'circle' ? scaledQrSize / 2 : Math.round(scaledQrSize * 0.08);
+    const mask = Buffer.from(
+      `<svg width="${scaledQrSize}" height="${scaledQrSize}">
+        ${config.maskType === 'circle' 
+          ? `<circle cx="${scaledQrSize/2}" cy="${scaledQrSize/2}" r="${scaledQrSize/2}" fill="white"/>`
+          : `<rect x="0" y="0" width="${scaledQrSize}" height="${scaledQrSize}" rx="${radius}" ry="${radius}" fill="white"/>`
+        }
+      </svg>`
+    );
+
+    // 3. Process the QR: Resize, Mask, and Add a subtle "Print Texture"
+    const processedQr = await sharp(qrBuffer)
+      .resize(scaledQrSize, scaledQrSize, { kernel: 'lanczos3' })
+      .composite([{ input: mask, blend: 'dest-in' }])
+      // Add very subtle noise to simulate fabric ink absorption
+      .modulate({ brightness: 1.02, saturation: 1.1 })
+      .png()
+      .toBuffer();
+
+    // 4. Final Composite
+    const finalBuffer = await sharp(baseImagePath)
       .composite([
         {
-          input: qrBuffer,
+          input: processedQr,
           top: scaledTop,
           left: scaledLeft,
           blend: 'over'
         }
       ])
-      .png({ quality: 100 })
+      .png({ quality: 100, compressionLevel: 9 })
       .toBuffer();
 
-    // 4. Upload to Supabase Storage (Task 3)
+    // 5. Cloud Upload
     const shortOrder = orderId.slice(-6).toUpperCase();
-    const fileName = `ORDER-${shortOrder}_${editionKey.toUpperCase()}_PRINT-FILE_${Date.now()}.png`;
+    const fileName = `HI-RES_ORDER-${shortOrder}_${editionKey.toUpperCase()}_${Date.now()}.png`;
 
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('print-assets')
-      .upload(fileName, compositeBuffer, { contentType: 'image/png', upsert: true });
+      .upload(fileName, finalBuffer, { contentType: 'image/png', upsert: true });
 
-    if (uploadError) {
-      console.error('❌ Supabase Upload Error:', uploadError.message);
-      throw new Error(`Upload failed: ${uploadError.message}`);
-    }
+    if (uploadError) throw uploadError;
 
-    const { data: publicUrlData } = supabase.storage.from('print-assets').getPublicUrl(fileName);
-    const assetUrl = publicUrlData.publicUrl;
-
-    console.log(`✅ Asset generated at scaled resolution (${metadata.width}px) and stored in cloud: ${assetUrl}`);
-    return assetUrl;
+    const { data: { publicUrl } } = supabase.storage.from('print-assets').getPublicUrl(fileName);
+    return publicUrl;
 
   } catch (error) {
-    console.error('❌ Auto-Compositor Failed:', error.message);
+    console.error('❌ High-Fidelity Compositor Failed:', error.message);
     throw error;
   }
 }

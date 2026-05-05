@@ -84,18 +84,17 @@ function renderSubmittedState(
                 <div>
                   <p className="nav-text text-foreground">{item.title}</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    {(entry as any)?.mode === 'bridge' ? 'QONNECT Bridge' : 'Direct Link'} · {formatTierLabel(item.tier)} tier
+                    {(entry as any)?.mode === 'bridge' ? 'QONNECT Bridge' : 'Direct Link'} · {formatTierLabel(item.tier)} tier · {item.selectedOptions?.find((o: any) => o.name === 'Size')?.value || 'N/A'}
                   </p>
-                </div>
-                <span className="signal-chip">
+                  </div>
+                  <span className="signal-chip">
                   {entry?.destinationType || "destination"}
-                </span>
-              </div>
+                  </span>
+                  </div>
 
-              <p className="mt-4 break-all text-sm leading-7 text-muted-foreground">
-                {(entry as any)?.mode === 'bridge' ? `qonnect.ai/b/${entry?.slug}` : entry?.targetUrl}
-              </p>
-
+                  <p className="mt-4 break-all text-sm leading-7 text-muted-foreground">
+                  {(entry as any)?.mode === 'bridge' ? `qonnect.work/b/${entry?.slug}` : entry?.targetUrl}       
+                  </p>
               {entry?.brief ? (
                 <p className="mt-4 text-sm leading-7 text-muted-foreground italic">
                   &ldquo;{entry.brief}&rdquo;

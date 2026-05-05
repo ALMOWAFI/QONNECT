@@ -24,6 +24,7 @@ const AdminDashboard = () => {
   const [liveUrlModal, setLiveUrlModal] = useState<{ slug: string; sessionId: string } | null>(null);
   const [liveUrl, setLiveUrl] = useState("");
   const [settingLiveUrl, setSettingLiveUrl] = useState(false);
+  const [shippingModal, setShippingModal] = useState<any | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -62,22 +63,33 @@ const AdminDashboard = () => {
       return;
     }
 
+    const item = order.items[0];
+    const size = item.selectedOptions?.find((o: any) => o.name === 'Size')?.value || 'N/A';
+
     const summary = `
 QONNECT ORDER SUMMARY
 ---------------------
 Order ID: #${order.shortOrderId}
 Customer: ${order.customerEmail}
-Edition: ${order.items[0].title}
-Tier: ${order.items[0].tier.toUpperCase()}
+Edition: ${item.title}
+Size: ${size}
+Tier: ${item.tier.toUpperCase()}
 Print Mode: ${intake.mode.toUpperCase()}
 Target URL: ${intake.targetUrl}
-QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
+QR Slug: ${intake.mode === 'bridge' ? 'qonnect.work/b/' + intake.slug : 'DIRECT'}
+
+SHIPPING ADDRESS:
+${order.shipping?.name || 'No name'}
+${order.shipping?.address?.line1 || ''}
+${order.shipping?.address?.line2 || ''}
+${order.shipping?.address?.city || ''}, ${order.shipping?.address?.state || ''} ${order.shipping?.address?.postal_code || ''}
+${order.shipping?.address?.country || ''}
 ---------------------
     `.trim();
 
     navigator.clipboard.writeText(summary);
     setCopiedId(order.sessionId);
-    toast.success("Order copied for supplier handoff.");
+    toast.success("Order & Shipping details copied for supplier.");
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -236,11 +248,24 @@ QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
                       <tr key={order.sessionId} className="group hover:bg-foreground/[0.01] transition-colors duration-300">
                         <td className="p-4 font-serif text-sm">#{order.shortOrderId}</td>
                         <td className="p-4">
-                          <div className="text-sm font-medium">{order.customerEmail || "In Progress..."}</div>
+                          <div className="flex flex-col gap-1">
+                            <div className="text-sm font-medium">{order.customerEmail || "In Progress..."}</div>
+                            {order.shipping && (
+                              <button 
+                                onClick={() => setShippingModal(order.shipping)}
+                                className="text-[9px] uppercase tracking-wider text-primary/70 hover:text-primary text-left"
+                              >
+                                View Shipping Address
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="p-4">
                           <div className="text-[10px] uppercase tracking-widest">{order.items[0]?.title?.split('Edition')[0] || 'Signature'}</div>
-                          <div className="text-[10px] text-primary/60 tracking-tighter">{order.items[0]?.tier}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-primary/60 tracking-tighter uppercase">{order.items[0]?.tier}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 border border-border bg-foreground/5 font-bold">{order.items[0]?.selectedOptions?.find((o: any) => o.name === 'Size')?.value || '?'}</span>
+                          </div>
                         </td>
                         <td className="p-4">
                           <div className="text-[10px] font-mono">
@@ -343,6 +368,38 @@ QR Slug: ${intake.mode === 'bridge' ? 'qonnect.ai/b/' + intake.slug : 'DIRECT'}
           )}
         </div>
       </main>
+
+      {/* Shipping Address Modal */}
+      {shippingModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="bg-background border border-border w-full max-w-md p-8 space-y-6 animate-in zoom-in duration-300">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="eyebrow text-[10px] mb-1">Logistics</p>
+                <h2 className="text-xl font-serif italic">Shipping Destination</h2>
+              </div>
+              <button onClick={() => setShippingModal(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="space-y-4 border-l border-primary/20 pl-6 py-2">
+              <p className="text-lg font-medium">{shippingModal.name}</p>
+              <div className="space-y-1 text-sm text-muted-foreground font-mono">
+                <p>{shippingModal.address?.line1}</p>
+                {shippingModal.address?.line2 && <p>{shippingModal.address.line2}</p>}
+                <p>{shippingModal.address?.city}, {shippingModal.address?.state} {shippingModal.address?.postal_code}</p>
+                <p className="uppercase tracking-widest pt-2 text-[10px] text-primary/60">{shippingModal.address?.country}</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShippingModal(null)}
+              className="w-full btn-filled !py-3 text-[10px]"
+            >Close Record</button>
+          </div>
+        </div>
+      )}
 
       {/* Set Live URL modal */}
       {liveUrlModal && (
