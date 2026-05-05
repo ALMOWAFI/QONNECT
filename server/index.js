@@ -204,8 +204,12 @@ async function sendOrderEmail(orderId, { emailTo, template, subject, sessionId, 
       const { Resend } = await import('resend');
       const resend = new Resend(process.env.RESEND_API_KEY);
 
+      // Resend requires verified domains. Fallback to onboarding@resend.dev for testing.
+      const fromDomain = process.env.RESEND_DOMAIN || 'onboarding@resend.dev';
+      const fromEmail = fromDomain.includes('@') ? fromDomain : `QONNECT <orders@${fromDomain}>`;
+
       const { data, error } = await resend.emails.send({
-        from: `QONNECT <orders@${new URL(process.env.PUBLIC_URL || 'https://qonnect.work').hostname}>`,
+        from: fromEmail,
         to: emailTo,
         subject: finalSubject,
         html,
@@ -1146,8 +1150,12 @@ app.post('/api/admin/orders/:sessionId/notify-supplier', adminLimiter, async (re
     if (process.env.RESEND_API_KEY) {
       const { Resend } = await import('resend');
       const resend = new Resend(process.env.RESEND_API_KEY);
+      
+      const fromDomain = process.env.RESEND_DOMAIN || 'onboarding@resend.dev';
+      const fromEmail = fromDomain.includes('@') ? fromDomain : `QONNECT Production <orders@${fromDomain}>`;
+
       const { error } = await resend.emails.send({
-        from: `QONNECT Production <orders@${new URL(base).hostname}>`,
+        from: fromEmail,
         to: supplierEmail,
         subject: `QONNECT Print Order #${shortId} — ${item.title || 'Garment'}`,
         html,

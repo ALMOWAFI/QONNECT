@@ -21,8 +21,8 @@ const EDITION_CONFIG = {
     qrSize: 95,
     left: 153,
     top: 228,
-    qrDark:  '#000000',
-    qrLight: '#C9A86C',
+    qrDark:  '#C9A86C', // Gold QR Code
+    qrLight: '#00000000', // Transparent background
   },
   'medicine': {
     baseImage: '../src/assets/med-edition.png',
@@ -30,8 +30,8 @@ const EDITION_CONFIG = {
     qrSize: 125,
     left: 228,
     top: 422,
-    qrDark:  '#000000',
-    qrLight: '#bbdefb',
+    qrDark:  '#bbdefb', // Blue QR Code
+    qrLight: '#00000000', // Transparent background
   },
   'business': {
     baseImage: '../src/assets/hero-hoodie.png',
@@ -39,8 +39,8 @@ const EDITION_CONFIG = {
     qrSize: 90,
     left: 180,
     top: 227,
-    qrDark:  '#000000',
-    qrLight: '#c8e6c9',
+    qrDark:  '#c8e6c9', // Green QR Code
+    qrLight: '#00000000', // Transparent background
   },
   'default': {
     baseImage: '../src/assets/hero-hoodie.png',
@@ -48,8 +48,8 @@ const EDITION_CONFIG = {
     qrSize: 90,
     left: 180,
     top: 227,
-    qrDark:  '#000000',
-    qrLight: '#c8e6c9',
+    qrDark:  '#c8e6c9',
+    qrLight: '#00000000',
   }
 };
 
