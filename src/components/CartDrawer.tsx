@@ -61,6 +61,15 @@ export const CartDrawer = () => {
   const handleCheckout = async () => {
     setIsCheckoutLoading(true);
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) {
+        setIsOpen(false);
+        navigate('/login?checkout=true');
+        toast.info("Please secure your identity by logging in before checkout.");
+        setIsCheckoutLoading(false);
+        return;
+      }
+
       const session = await createCheckoutSession(items);
       if (session.error) throw new Error(session.error);
 

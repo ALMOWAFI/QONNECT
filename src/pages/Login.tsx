@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, ArrowRight, Mail } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { supabase } from "@/lib/supabase";
@@ -11,13 +11,21 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isCheckout = searchParams.get("checkout") === "true";
 
   // If already logged in, skip the login page entirely
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate("/members", { replace: true });
+      if (session) {
+        if (isCheckout) {
+          navigate("/?cart=open", { replace: true });
+        } else {
+          navigate("/members", { replace: true });
+        }
+      }
     });
-  }, [navigate]);
+  }, [navigate, isCheckout]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +57,7 @@ const Login = () => {
       <main className="flex-1 flex items-center justify-center px-5 py-20">
         <div className="max-w-md w-full space-y-12 animate-in fade-in duration-1000">
           <div className="text-center">
-            <p className="eyebrow mb-4">Member Access</p>
+            <p className="eyebrow mb-4">{isCheckout ? "Pre-Checkout Auth" : "Member Access"}</p>
             <h1 className="display-md">
               Secure your <br /> <em className="italic font-serif text-primary/80">digital identity.</em>
             </h1>
@@ -62,7 +70,7 @@ const Login = () => {
                 We've sent a secure access link to <span className="text-foreground font-sans not-italic">{email}</span>.
               </p>
               <p className="text-[10px] uppercase tracking-[0.2em] opacity-40">
-                The link expires in 15 minutes.
+                {isCheckout ? "Click the link to login and complete your purchase." : "The link expires in 15 minutes."}
               </p>
             </div>
           ) : (
@@ -94,7 +102,9 @@ const Login = () => {
               </button>
 
               <p className="text-center text-[10px] text-muted-foreground uppercase tracking-[0.2em] leading-relaxed max-w-[280px] mx-auto opacity-40">
-                New here? Purchase a hoodie first to initialize your bridge.
+                {isCheckout 
+                  ? "We require an account before payment so you never lose access to your bridge."
+                  : "New here? Purchase a hoodie first to initialize your bridge."}
               </p>
             </form>
           )}

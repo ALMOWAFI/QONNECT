@@ -68,7 +68,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
                    : 'default';
 
   const config = EDITION_CONFIG[editionKey];
-  const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.ai'}/b/${slug}`;
+  const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}`;
 
   console.log(`🖼️ Auto-Compositing ${editionKey} design for order ${orderId} (Slug: ${slug})`);
 
