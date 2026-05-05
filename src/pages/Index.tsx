@@ -60,37 +60,37 @@ const Index = () => {
                   QONNECT / Drop 01 / 2026
                 </p>
 
-                <h1 className="display-xl mt-8 max-w-4xl tracking-tighter leading-[0.9]">
-                  Closer than a business card, <br /> <em className="italic font-serif text-primary/80">quieter than a pitch.</em>
+                <h1 className="display-xl mt-8 max-w-4xl tracking-tighter leading-[0.85] md:leading-[0.9]">
+                  Closer than a business card, <em className="italic font-serif text-primary/80">quieter than a pitch.</em>
                 </h1>
 
-                <p className="section-intro mt-10 max-w-2xl text-xl leading-relaxed opacity-80 italic font-serif">
+                <p className="section-intro mt-10 max-w-xl text-lg md:text-xl leading-relaxed opacity-80 italic font-serif">
                   A premium garment that turns high-fidelity silhouettes into a living 
                   gateway for your professional world.
                 </p>
 
-                <div className="mt-12 flex flex-wrap gap-4">
+                <div className="mt-12">
                   {user ? (
-                    <>
-                      <div className="w-full mb-2">
-                        <p className="text-xs uppercase tracking-[0.2em] text-primary/80 font-medium">Welcome back, {user.email?.split('@')[0]}</p>
+                    <div className="space-y-6">
+                      <p className="text-[10px] uppercase tracking-[0.3em] text-primary/60 font-medium">Welcome back, {user.email?.split('@')[0]}</p>
+                      <div className="flex flex-wrap gap-4">
+                        <Link to="/members" className="btn-filled !px-8 hover:shadow-[0_0_30px_-5px_rgba(232,224,200,0.3)] flex items-center gap-2 transition-all duration-300 active:scale-[0.98]">
+                          <QrCode className="w-4 h-4" /> Manage Your Bridge
+                        </Link>
+                        <Link to="/members" className="btn-transparent flex items-center gap-2 transition-all duration-300 active:scale-[0.98]">
+                          <Package className="w-4 h-4" /> Track Orders
+                        </Link>
                       </div>
-                      <Link to="/members" className="btn-filled !px-8 hover:shadow-[0_0_30px_-5px_rgba(232,224,200,0.3)] flex items-center gap-2">
-                        <QrCode className="w-4 h-4" /> Manage Your Bridge
-                      </Link>
-                      <Link to="/members" className="btn-transparent flex items-center gap-2">
-                        <Package className="w-4 h-4" /> Track Orders
-                      </Link>
-                    </>
+                    </div>
                   ) : (
-                    <>
-                      <a href="#shop" className="btn-filled !px-10 hover:shadow-[0_0_30px_-5px_rgba(232,224,200,0.3)]">
+                    <div className="flex flex-wrap gap-4">
+                      <a href="#shop" className="btn-filled !px-10 hover:shadow-[0_0_30px_-5px_rgba(232,224,200,0.3)] transition-all duration-300 active:scale-[0.98]">
                         Shop the Drop
                       </a>
-                      <a href="#editions" className="btn-transparent">
+                      <a href="#editions" className="btn-transparent transition-all duration-300 active:scale-[0.98]">
                         Explore Editions
                       </a>
-                    </>
+                    </div>
                   )}
                 </div>
 
