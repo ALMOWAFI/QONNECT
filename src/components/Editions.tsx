@@ -1,12 +1,13 @@
-import techImage from "@/assets/tech-edition.png";
-import medImage from "@/assets/med-edition.png";
+import techImage from "@/assets/dmts.png";
+import medImage from "@/assets/b7e9.png";
+import businessImage from "@/assets/8d7s.png";
 
 const editions = [
   {
     n: "01",
     name: "Tech",
     tagline: "Systems thinking, worn on the back.",
-    accent: "text-tech",
+    accent: "text-emerald-400",
     image: techImage,
     desc: "For builders and engineers who want the piece to feel precise, sharp, and quietly advanced.",
   },
@@ -14,9 +15,17 @@ const editions = [
     n: "02",
     name: "Medicine",
     tagline: "Care, clarity, and pulse.",
-    accent: "text-medicine",
+    accent: "text-blue-400",
     image: medImage,
     desc: "For clinicians, students, and researchers who want the signal to feel calm, trusted, and deeply human.",
+  },
+  {
+    n: "03",
+    name: "Business",
+    tagline: "Quiet ambition, direct access.",
+    accent: "text-[#c9a96e]",
+    image: businessImage,
+    desc: "For founders who want their scan to open a sharper pitch than a business card.",
   },
 ];
 

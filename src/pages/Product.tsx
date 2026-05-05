@@ -6,9 +6,9 @@ import Footer from "@/components/Footer";
 import { PRODUCT_BY_HANDLE_QUERY, storefrontApiRequest } from "@/lib/shopify";
 import { useCartStore } from "@/stores/cartStore";
 
-import techImage from "@/assets/tech-edition.png";
-import medImage from "@/assets/med-edition.png";
-import heroImage from "@/assets/hero-hoodie.png";
+import techImage from "@/assets/dmts.png";
+import medImage from "@/assets/b7e9.png";
+import heroImage from "@/assets/8d7s.png";
 
 interface ProductDetail {
   id: string;

@@ -7,9 +7,9 @@ import {
 import { ProductCard } from "./ProductCard";
 import { Loader2 } from "lucide-react";
 
-import techImage from "@/assets/tech-edition.png";
-import medImage from "@/assets/med-edition.png";
-import heroImage from "@/assets/hero-hoodie.png";
+import techImage from "@/assets/dmts.png";
+import medImage from "@/assets/b7e9.png";
+import heroImage from "@/assets/8d7s.png";
 
 // Flagship Products (Hard-coded fallback)
 const FLAGSHIP_PRODUCTS: ShopifyProduct[] = [

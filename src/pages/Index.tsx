@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import { QrCode, Package } from "lucide-react";
 
-import heroHoodie from "@/assets/hero-hoodie.png";
+import heroHoodie from "@/assets/8d7s.png";
 
 const heroFacts = [
   { value: "03", label: "Active editions" },

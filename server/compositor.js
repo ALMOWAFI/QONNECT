@@ -23,41 +23,41 @@ const __dirname = path.dirname(__filename);
 
 const EDITION_CONFIG = {
   'robotics': {
-    baseImage: '../src/assets/tech-edition.png', // Reference for mockup
-    baseWidth: 772,
-    qrSize: 95,
-    left: 153,
-    top: 228,
-    qrDark:  '#C9A86C', // Gold
-    qrLight: '#00000000', // Transparent
+    baseImage: '../src/assets/dmts.png', // Robot hands / Blue
+    baseWidth: 2400,
+    qrSize: 340,
+    left: 445,   // (615 - 340/2)
+    top: 780,    // (950 - 340/2)
+    qrDark:  '#99c6ff', 
+    qrLight: '#00000000',
     maskType: 'circle',
   },
   'medicine': {
-    baseImage: '../src/assets/med-edition.png',
-    baseWidth: 1200,
-    qrSize: 125,
-    left: 228,
-    top: 422,
-    qrDark:  '#BBDEFB', // Blue
+    baseImage: '../src/assets/b7e9.png', // Surgical hands / Green
+    baseWidth: 2390,
+    qrSize: 280,
+    left: 600,   // (740 - 280/2)
+    top: 690,    // (830 - 280/2)
+    qrDark:  '#99fadc', 
     qrLight: '#00000000',
     maskType: 'circle',
   },
   'business': {
-    baseImage: '../src/assets/hero-hoodie.png',
-    baseWidth: 772,
-    qrSize: 90,
-    left: 180,
-    top: 227,
-    qrDark:  '#C8E6C9', // Green
+    baseImage: '../src/assets/8d7s.png', // Suit hands / Neutral-Gold
+    baseWidth: 2390,
+    qrSize: 260,
+    left: 520,   // (650 - 260/2)
+    top: 630,    // (760 - 260/2)
+    qrDark:  '#D4C5B0', 
     qrLight: '#00000000',
     maskType: 'rounded',
   },
   'default': {
-    baseImage: '../src/assets/hero-hoodie.png',
-    baseWidth: 772,
-    qrSize: 90,
-    left: 180,
-    top: 227,
+    baseImage: '../src/assets/8d7s.png',
+    baseWidth: 2390,
+    qrSize: 260,
+    left: 520,
+    top: 630,
     qrDark:  '#FFFFFF',
     qrLight: '#00000000',
     maskType: 'rounded',
