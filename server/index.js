@@ -204,7 +204,6 @@ async function sendOrderEmail(orderId, { emailTo, template, subject, sessionId, 
       const { Resend } = await import('resend');
       const resend = new Resend(process.env.RESEND_API_KEY);
 
-      // Resend requires verified domains. Fallback to onboarding@resend.dev for testing.
       const fromDomain = process.env.RESEND_DOMAIN || 'onboarding@resend.dev';
       const fromEmail = fromDomain.includes('@') ? fromDomain : `QONNECT <orders@${fromDomain}>`;
 
@@ -216,13 +215,15 @@ async function sendOrderEmail(orderId, { emailTo, template, subject, sessionId, 
       });
 
       if (error) {
-        console.error('❌ Resend API Error:', error);
+        console.error(`⚠️ Resend API Error (${error.name}): ${error.message}. Falling back to simulation.`);
+        providerId = 'simulated';
       } else {
         providerId = data?.id || 'resend_success';
         console.log(`✅ 📧 [${template}] sent to ${emailTo}`);
       }
     } catch (err) {
       console.error('❌ Failed to send email via Resend:', err.message);
+      providerId = 'simulated';
     }
   } else {
     console.log(`📧 [Simulated: ${template}] → ${emailTo} (no RESEND_API_KEY set)`);
