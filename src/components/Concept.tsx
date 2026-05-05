@@ -11,12 +11,12 @@ const process = [
   },
   {
     n: "03",
-    title: "Protocol",
+    title: "Context",
     body: "LinkedIn, portfolio, or a bespoke Linktree. You control the narrative of the handoff, every time.",
   },
-];
+  ];
 
-const pillars = [
+  const pillars = [
   {
     title: "Signal over noise",
     body: "Designed for those who understand that true influence is quiet, intentional, and high-fidelity.",
@@ -29,20 +29,19 @@ const pillars = [
     title: "The Handshake",
     body: "Discard the friction of business cards. Let the garment initiate the protocol of discovery.",
   },
-];
+  ];
 
-const Concept = () => {
+  const Concept = () => {
   return (
     <section id="concept" className="px-5 py-24 md:px-12 md:py-32">
       <div className="mx-auto max-w-7xl">
         <div className="grid gap-10 lg:grid-cols-[0.84fr_1.16fr]">
           <div className="max-w-xl">
-            <p className="eyebrow">The Protocol</p>
+            <p className="eyebrow">How it works</p>
             <h2 className="display-lg mt-6">
               Sophistication <br/> <em className="italic font-serif text-primary/70 text-4xl md:text-5xl">by design.</em>
             </h2>
           </div>
-
           <div className="space-y-6">
             <p className="display-md max-w-2xl text-foreground/92 font-serif italic">
               QONNECT is a networking layer disguised as high-end fashion. 
