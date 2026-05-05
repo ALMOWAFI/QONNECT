@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { getArtQrUrl } from './orderStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,16 +88,33 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     const scaledLeft = Math.round(config.left * scaleFactor);
     const scaledTop = Math.round(config.top * scaleFactor);
 
-    // 2. Generate the QR Code as a PNG Buffer
-    const qrBuffer = await QRCode.toBuffer(qrUrl, {
-      width: scaledQrSize,
-      margin: 1,
-      errorCorrectionLevel: 'H',
-      color: {
-        dark:  config.qrDark,
-        light: config.qrLight,
-      }
-    });
+    // 2. Fetch the Monster Labs AI Art QR Code if available
+    let qrBuffer;
+    const aiArtUrl = await getArtQrUrl(slug);
+
+    if (aiArtUrl) {
+      console.log(`🎨 Fetching AI Art QR from: ${aiArtUrl}`);
+      const response = await fetch(aiArtUrl);
+      if (!response.ok) throw new Error('Failed to fetch AI Art QR');
+      const arrayBuffer = await response.arrayBuffer();
+      
+      // Resize the AI image to exactly match the scaledQrSize so it fits the hoodie design perfectly
+      qrBuffer = await sharp(Buffer.from(arrayBuffer))
+        .resize(scaledQrSize, scaledQrSize)
+        .png()
+        .toBuffer();
+    } else {
+      console.log(`⚠️ WARNING: AI Art QR not found for ${slug}, falling back to standard QR. The print will not have the artistic model applied.`);
+      qrBuffer = await QRCode.toBuffer(qrUrl, {
+        width: scaledQrSize,
+        margin: 1,
+        errorCorrectionLevel: 'H',
+        color: {
+          dark:  config.qrDark,
+          light: config.qrLight,
+        }
+      });
+    }
 
     // 3. Ensure the output directory exists
     const outDir = path.join(__dirname, '../print-assets');
