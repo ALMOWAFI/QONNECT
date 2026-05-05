@@ -398,10 +398,22 @@ function BridgeCard({ bridge: initial }: { bridge: Bridge }) {
   );
 }
 
+interface DirectOrder {
+  sessionId:     string;
+  shortOrderId:  string;
+  status:        string;
+  paymentStatus: string;
+  items:         any[];
+  intake:        any | null;
+  printAssetUrl: string | null;
+  createdAt:     string;
+}
+
 const Members = () => {
-  const [bridges, setBridges]   = useState<Bridge[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [bridges, setBridges]         = useState<Bridge[]>([]);
+  const [directOrders, setDirectOrders] = useState<DirectOrder[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [userEmail, setUserEmail]     = useState<string | null>(null);
   const navigate = useNavigate();
 
   const fetchBridges = useCallback(async (token: string) => {
@@ -410,6 +422,19 @@ const Members = () => {
     });
     if (!res.ok) throw new Error("Could not load bridges.");
     return res.json() as Promise<Bridge[]>;
+  }, []);
+
+  const fetchDirectOrders = useCallback(async (token: string, bridgeSlugs: string[]) => {
+    const res = await fetch("/api/members/orders", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return [];
+    const orders: DirectOrder[] = await res.json();
+    // Only show orders that have NO bridge (direct-link mode) — bridge orders already show above
+    return orders.filter(o => {
+      const entry = o.intake?.entries?.[0];
+      return entry?.mode === 'direct' || (!entry?.slug && !bridgeSlugs.includes(entry?.slug));
+    });
   }, []);
 
   useEffect(() => {
@@ -427,8 +452,11 @@ const Members = () => {
         try {
           const data = await fetchBridges(session.access_token);
           setBridges(data);
+          const bridgeSlugs = data.map(b => b.slug);
+          const direct = await fetchDirectOrders(session.access_token, bridgeSlugs);
+          setDirectOrders(direct);
 
-          // Gift Flow Claim Logic (Task 1)
+          // Gift Flow Claim Logic
           const params = new URLSearchParams(window.location.search);
           const claimSlug = params.get("claim_slug");
           const s = params.get("s");
@@ -499,12 +527,12 @@ const Members = () => {
             <div className="py-32 flex justify-center">
               <Loader2 className="w-6 h-6 animate-spin text-primary/40" />
             </div>
-          ) : bridges.length === 0 ? (
+          ) : bridges.length === 0 && directOrders.length === 0 ? (
             <div className="border border-border p-20 text-center space-y-6">
               <Globe className="w-10 h-10 mx-auto text-muted-foreground/20" />
-              <p className="text-2xl font-light">No bridges found.</p>
+              <p className="text-2xl font-light">No orders found.</p>
               <p className="text-muted-foreground max-w-xs mx-auto text-sm leading-relaxed">
-                Your bridges appear here once you complete the intake form after purchasing a hoodie.
+                Your bridges and orders appear here after purchasing a QONNECT garment.
               </p>
               <a href="/" className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] border border-border px-6 py-3 hover:border-foreground/30 transition-all duration-200">
                 Shop the drop <ArrowUpRight className="w-3 h-3" />
@@ -529,6 +557,46 @@ const Members = () => {
               {bridges.map(bridge => (
                 <BridgeCard key={bridge.slug} bridge={bridge} />
               ))}
+
+              {/* Direct-link orders — QR points straight to a URL, no bridge analytics */}
+              {directOrders.length > 0 && (
+                <div className="mt-12 space-y-4">
+                  <div className="border-t border-border/30 pt-10">
+                    <p className="eyebrow text-[10px] mb-6">Direct Link Orders</p>
+                    <p className="text-muted-foreground text-sm font-serif mb-8">
+                      These garments have QR codes that redirect directly to your URL. Scan analytics are not available for direct links.
+                    </p>
+                  </div>
+                  {directOrders.map(order => (
+                    <article key={order.sessionId} className="border border-border/50 p-8 space-y-4">
+                      <div className="flex justify-between items-start gap-4 flex-wrap">
+                        <div className="space-y-1">
+                          <p className="text-[9px] uppercase tracking-[0.3em] text-muted-foreground">Order #{order.shortOrderId}</p>
+                          <p className="text-lg font-light">{order.items[0]?.title || 'QONNECT Garment'}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{order.intake?.entries?.[0]?.targetUrl || 'URL not set'}</p>
+                        </div>
+                        <span className={`text-[9px] uppercase tracking-widest px-3 py-1 border ${
+                          order.status === 'shipped' || order.status === 'delivered'
+                            ? 'border-green-500/30 text-green-500'
+                            : order.status === 'ready_to_print' || order.status === 'printing'
+                            ? 'border-primary/30 text-primary'
+                            : 'border-border text-muted-foreground'
+                        }`}>
+                          {order.status?.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      {!order.intake && (
+                        <a
+                          href={`/success?session_id=${order.sessionId}`}
+                          className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-primary border border-primary/30 px-4 py-2 hover:bg-primary/5 transition-all"
+                        >
+                          Complete Setup <ArrowUpRight className="w-3 h-3" />
+                        </a>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

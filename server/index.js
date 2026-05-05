@@ -584,7 +584,10 @@ app.get('/api/resolve-slug/:slug', async (req, res) => {
     if (result.type === 'template') {
       res.json({ type: 'template', template: result });
     } else if (result.type === 'claim') {
-      res.json({ type: 'claim', slug });
+      // Unclaimed bridge — send the HMAC so Bridge page can pass it to /claim
+      const secret = process.env.QR_SECRET || 'qonnect-core-secret';
+      const sig = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
+      res.json({ type: 'claim', slug, s: sig });
     } else if (result.destination === '#pending-build') {
       // Premium tier — page is still being built. Return a holding template.
       res.json({

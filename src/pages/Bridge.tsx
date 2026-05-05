@@ -8,6 +8,7 @@ interface SlugResult {
   destination?: string;
   template?: TemplateData;
   slug?: string;
+  s?: string;
 }
 
 const resolveSlug = async (slug: string): Promise<SlugResult | null> => {
@@ -57,8 +58,9 @@ const Bridge = () => {
         }
 
         if (result.type === "claim") {
-          const s = new URLSearchParams(window.location.search).get('s');
-          navigate(`/claim?slug=${result.slug}${s ? `&s=${s}` : ''}`, { replace: true });
+          // Use ?s= from the scanned QR URL, fall back to server-computed sig
+          const s = new URLSearchParams(window.location.search).get('s') || result.s;
+          navigate(`/claim?slug=${result.slug || slug}${s ? `&s=${s}` : ''}`, { replace: true });
           return;
         }
 

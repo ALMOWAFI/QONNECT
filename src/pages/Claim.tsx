@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Loader2, ArrowRight, Mail, Sparkles, QrCode } from "lucide-react";
+import { Loader2, ArrowRight, Mail, Sparkles, QrCode, Check } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -10,25 +10,40 @@ const Claim = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const slug = searchParams.get("slug");
-  
+  const s    = searchParams.get("s");
+
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
-  const [isClaimed, setIsClaimed] = useState(false);
+  const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!slug) {
-      navigate("/");
-      return;
-    }
-
-    // If user is already logged in, check if they can claim it directly
+    if (!slug) { navigate("/"); return; }
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        // They are logged in. We can show a "Confirm Claim" button instead of email input.
-      }
+      if (session?.user?.email) setLoggedInEmail(session.user.email);
     });
   }, [slug, navigate]);
+
+  // Already-logged-in: claim directly without email step
+  const handleDirectClaim = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No session.");
+      const res = await fetch(`/api/members/bridges/${slug}/claim?s=${encodeURIComponent(s || '')}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(data.message || "Identity secured.");
+      navigate("/members");
+    } catch (err: any) {
+      toast.error(err.message || "Could not claim bridge.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleClaimRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +96,27 @@ const Claim = () => {
               <QrCode className="w-32 h-32" />
             </div>
 
-            {isSent ? (
+            {loggedInEmail ? (
+              // Already signed in — one-tap claim
+              <div className="space-y-8 relative z-10">
+                <div className="space-y-2 border-b border-border/50 pb-6">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Signed in as</p>
+                  <p className="text-lg font-mono text-foreground">{loggedInEmail}</p>
+                </div>
+                <p className="text-sm text-muted-foreground font-serif leading-relaxed">
+                  You're already signed in. Tap below to permanently link this garment to your account.
+                </p>
+                <button
+                  onClick={handleDirectClaim}
+                  disabled={isLoading}
+                  className="btn-filled w-full py-6 group flex items-center justify-center gap-3 active:scale-[0.98]"
+                >
+                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                    <><Check className="w-5 h-5" /> Claim Identity</>
+                  )}
+                </button>
+              </div>
+            ) : isSent ? (
               <div className="text-center space-y-6 py-4 relative z-10">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                   <Mail className="w-8 h-8 text-primary animate-pulse" />
