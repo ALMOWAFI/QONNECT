@@ -61,12 +61,12 @@ const Index = () => {
                 </p>
 
                 <h1 className="display-xl mt-8 max-w-4xl tracking-tighter leading-[0.9]">
-                  Wear the <br /> <em className="italic font-serif text-primary/80">conversation.</em>
+                  Closer than a business card, <br /> <em className="italic font-serif text-primary/80">quieter than a pitch.</em>
                 </h1>
 
-                <p className="section-intro mt-10 max-w-2xl text-xl leading-relaxed opacity-80">
-                  A premium heavyweight hoodie that turns your back print into a living
-                  entry point for your professional world.
+                <p className="section-intro mt-10 max-w-2xl text-xl leading-relaxed opacity-80 italic font-serif">
+                  A premium garment that turns high-fidelity silhouettes into a living 
+                  gateway for your professional world.
                 </p>
 
                 <div className="mt-12 flex flex-wrap gap-4">

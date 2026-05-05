@@ -40,7 +40,7 @@ const Header = () => {
               QONNECT
             </span>
             <span className="hidden pb-1 text-[10px] uppercase tracking-[0.32em] text-muted-foreground lg:block">
-              Wear your world
+              The Digital Introduction
             </span>
           </Link>
 
