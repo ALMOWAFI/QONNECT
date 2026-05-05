@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Editions from "@/components/Editions";
 import Concept from "@/components/Concept";
 import ProductGrid from "@/components/ProductGrid";
+import { supabase } from "@/lib/supabase";
+import { User } from "@supabase/supabase-js";
+import { QrCode, Package } from "lucide-react";
 
 import heroHoodie from "@/assets/hero-hoodie.png";
 
@@ -13,10 +17,23 @@ const heroFacts = [
   { value: "0", label: "Inventory held" },
 ];
 
-// ... (audience array)
-
 const Index = () => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const { clientX, clientY } = e;
@@ -53,12 +70,28 @@ const Index = () => {
                 </p>
 
                 <div className="mt-12 flex flex-wrap gap-4">
-                  <a href="#shop" className="btn-filled !px-10 hover:shadow-[0_0_30px_-5px_rgba(232,224,200,0.3)]">
-                    Shop the Drop
-                  </a>
-                  <a href="#editions" className="btn-transparent">
-                    Explore Editions
-                  </a>
+                  {user ? (
+                    <>
+                      <div className="w-full mb-2">
+                        <p className="text-xs uppercase tracking-[0.2em] text-primary/80 font-medium">Welcome back, {user.email?.split('@')[0]}</p>
+                      </div>
+                      <Link to="/members" className="btn-filled !px-8 hover:shadow-[0_0_30px_-5px_rgba(232,224,200,0.3)] flex items-center gap-2">
+                        <QrCode className="w-4 h-4" /> Manage Your Bridge
+                      </Link>
+                      <Link to="/members" className="btn-transparent flex items-center gap-2">
+                        <Package className="w-4 h-4" /> Track Orders
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <a href="#shop" className="btn-filled !px-10 hover:shadow-[0_0_30px_-5px_rgba(232,224,200,0.3)]">
+                        Shop the Drop
+                      </a>
+                      <a href="#editions" className="btn-transparent">
+                        Explore Editions
+                      </a>
+                    </>
+                  )}
                 </div>
 
                 <div className="mt-16 grid gap-4 grid-cols-3 max-w-md">

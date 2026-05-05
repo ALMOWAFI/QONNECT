@@ -1,14 +1,32 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { CartDrawer } from "./CartDrawer";
-
-const links = [
-  { href: "/#editions", label: "Editions" },
-  { href: "/#concept", label: "Concept" },
-  { href: "/#shop", label: "Shop" },
-  { href: "/login", label: "Members" },
-];
+import { supabase } from "@/lib/supabase";
 
 const Header = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const links = [
+    { href: "/#editions", label: "Editions" },
+    { href: "/#concept", label: "Concept" },
+    { href: "/#shop", label: "Shop" },
+    { href: isLoggedIn ? "/members" : "/login", label: isLoggedIn ? "Dashboard" : "Members" },
+  ];
+
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl">
       <div className="px-5 py-4 md:px-12">
