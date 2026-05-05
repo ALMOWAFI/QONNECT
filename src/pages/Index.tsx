@@ -48,23 +48,23 @@ const Index = () => {
       <Header />
 
       <main>
-        <section className="relative overflow-hidden px-5 pb-24 pt-16 md:px-12 md:pb-32 md:pt-24">
+        <section className="relative overflow-hidden px-6 pb-24 pt-16 md:px-12 md:pb-40 md:pt-32 lg:px-20">
           <div aria-hidden className="hero-grid" />
           <div aria-hidden className="hero-orb hero-orb-tech opacity-30" />
           <div aria-hidden className="hero-orb hero-orb-medicine opacity-30" />
 
           <div className="relative mx-auto max-w-7xl">
-            <div className="grid gap-16 lg:grid-cols-[1fr_1fr] lg:items-center">
+            <div className="grid gap-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center xl:gap-24">
               <div className="max-w-3xl reveal-on-scroll">
                 <p className="eyebrow inline-flex rounded-full border border-border/70 bg-background/55 px-4 py-2 backdrop-blur">
                   QONNECT / Drop 01 / 2026
                 </p>
 
-                <h1 className="display-xl mt-8 max-w-4xl tracking-tighter leading-[0.85] md:leading-[0.9]">
+                <h1 className="display-xl mt-8 max-w-4xl tracking-tighter leading-[0.85] lg:text-[5.5rem] xl:text-[7.5rem] 2xl:text-[8.5rem]">
                   Closer than a business card, <em className="italic font-serif text-primary/80">quieter than a pitch.</em>
                 </h1>
 
-                <p className="section-intro mt-10 max-w-xl text-lg md:text-xl leading-relaxed opacity-80 italic font-serif">
+                <p className="section-intro mt-10 max-w-lg text-lg md:text-xl leading-relaxed opacity-80 italic font-serif">
                   A premium garment that turns high-fidelity silhouettes into a living 
                   gateway for your professional world.
                 </p>
@@ -94,7 +94,7 @@ const Index = () => {
                   )}
                 </div>
 
-                <div className="mt-16 grid gap-4 grid-cols-3 max-w-md">
+                <div className="mt-20 grid gap-4 grid-cols-3 max-w-md">
                   {heroFacts.map((fact) => (
                     <div key={fact.label} className="border-l border-border/50 pl-5">
                       <p className="display text-3xl font-light">{fact.value}</p>
@@ -106,7 +106,7 @@ const Index = () => {
                 </div>
               </div>
 
-              <div className="relative lg:translate-y-6 reveal-on-scroll perspective-1000">
+              <div className="relative lg:translate-y-6 reveal-on-scroll perspective-1000 max-w-lg lg:max-w-none mx-auto w-full">
                 <div className="absolute inset-0 bg-primary/5 blur-[120px] rounded-full" />
                 <div 
                   className="relative group overflow-hidden rounded-[2.5rem] border border-border/50 bg-background/40 backdrop-blur-sm p-4 transition-transform duration-200 ease-out preserve-3d"
