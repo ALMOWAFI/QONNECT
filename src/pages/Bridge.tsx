@@ -4,14 +4,20 @@ import { Loader2, Globe } from "lucide-react";
 import { TemplateRenderer, type TemplateData } from "@/components/templates/TemplateRenderer";
 
 interface SlugResult {
-  type: "redirect" | "template";
+  type: "redirect" | "template" | "claim";
   destination?: string;
   template?: TemplateData;
+  slug?: string;
 }
 
 const resolveSlug = async (slug: string): Promise<SlugResult | null> => {
+  const s = new URLSearchParams(window.location.search).get('s');
   try {
-    const response = await fetch(`/api/resolve-slug/${encodeURIComponent(slug)}`);
+    const url = s 
+      ? `/api/resolve-slug/${encodeURIComponent(slug)}?s=${encodeURIComponent(s)}`
+      : `/api/resolve-slug/${encodeURIComponent(slug)}`;
+      
+    const response = await fetch(url);
     if (!response.ok) return null;
     return await response.json();
   } catch (err) {
@@ -47,6 +53,12 @@ const Bridge = () => {
 
         if (result.type === "template" && result.template) {
           setTemplate(result.template);
+          return;
+        }
+
+        if (result.type === "claim") {
+          const s = new URLSearchParams(window.location.search).get('s');
+          navigate(`/claim?slug=${result.slug}${s ? `&s=${s}` : ''}`, { replace: true });
           return;
         }
 

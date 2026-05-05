@@ -324,6 +324,10 @@ export async function findDestinationBySlug(slug) {
 
   if (error || !data) return null;
 
+  if (data.destination_type === 'unclaimed') {
+    return { type: 'claim', slug: data.slug };
+  }
+
   if (data.destination_type === 'custom-page' || data.destination_type === 'linktree') {
     const items = data.orders?.items || [];
     return {

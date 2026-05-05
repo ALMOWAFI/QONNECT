@@ -313,7 +313,7 @@ function BridgeCard({ bridge: initial }: { bridge: Bridge }) {
           <div>
             <p className="text-[9px] uppercase tracking-[0.3em] text-muted-foreground mb-2">Your bridge</p>
             <h2 className="text-3xl font-light tracking-tight break-all">
-              qonnect.ai/b/<span className="font-medium">{bridge.slug}</span>
+              qonnect.work/b/<span className="font-medium">{bridge.slug}</span>
             </h2>
           </div>
 
@@ -427,6 +427,29 @@ const Members = () => {
         try {
           const data = await fetchBridges(session.access_token);
           setBridges(data);
+
+          // Gift Flow Claim Logic (Task 1)
+          const params = new URLSearchParams(window.location.search);
+          const claimSlug = params.get("claim_slug");
+          const s = params.get("s");
+          if (claimSlug && s) {
+            toast.loading("Securing identity...");
+            const claimRes = await fetch(`/api/members/bridges/${claimSlug}/claim?s=${encodeURIComponent(s)}`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+            const claimData = await claimRes.json();
+            toast.dismiss();
+            if (claimRes.ok) {
+              toast.success(claimData.message);
+              const refreshed = await fetchBridges(session.access_token);
+              setBridges(refreshed);
+            } else {
+              toast.error(claimData.error || "Claim failed.");
+            }
+            // Clear parameters to prevent double-claiming attempts on refresh
+            window.history.replaceState({}, '', window.location.pathname);
+          }
         } catch (err: any) {
           toast.error(err.message || "Could not load your identity hub.");
         } finally {

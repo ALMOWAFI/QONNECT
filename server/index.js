@@ -262,13 +262,65 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
     if (record) {
       const updated = {
         ...record,
-        status:       'intake_required',
+        status:       'intake_required', // Still require intake for configuration, but it's ready to print
         paymentStatus:'paid',
         contactEmail: session.customer_details?.email || record.contactEmail,
         updatedAt:    new Date().toISOString(),
       };
+      
+      // Auto-provision bridges for the Gift Flow (Task 1)
+      const intakeEntries = [];
+      for (let i = 0; i < (record.items || []).length; i++) {
+        const item = record.items[i];
+        const mode = item.tier === 'basic' ? 'direct' : 'bridge';
+        if (mode === 'bridge') {
+          // Generate a secure fallback slug for printing
+          const fallbackSlug = `q-${crypto.randomBytes(4).toString('hex')}`;
+          
+          const entry = {
+            itemKey: item.itemKey,
+            mode: 'bridge',
+            slug: fallbackSlug,
+            targetUrl: '',
+            destinationType: 'unclaimed',
+            brief: item.brief || '',
+            links: []
+          };
+          intakeEntries.push(entry);
+          await writeBridge(entry, updated._dbId || session.id);
+          
+          // Fire-and-forget: Start generating the AI Art and Print Asset immediately
+          ;(async () => {
+            try {
+              const tier = item.tier || 'business';
+              await generateAndStoreArtQr(fallbackSlug, tier);
+              const { generateCompositeAsset } = await import('./compositor.js');
+              const edition = item.title || 'default';
+              const assetPath = await generateCompositeAsset(session.id, edition, fallbackSlug);
+              
+              // Persist print asset to Supabase
+              const { createClient } = await import('@supabase/supabase-js');
+              const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+              await supabase.from('orders').update({ print_asset_url: assetPath }).eq('stripe_session_id', session.id);
+            } catch (err) {
+              console.error('❌ Auto-provision asset failed:', err.message);
+            }
+          })();
+        }
+      }
+
+      // If we auto-provisioned entries, save them as a baseline intake
+      if (intakeEntries.length > 0 && !updated.intake) {
+        updated.intake = {
+          contactEmail: updated.contactEmail,
+          entries: intakeEntries,
+          submittedAt: updated.updatedAt,
+          updatedAt: updated.updatedAt
+        };
+      }
+
       const saved = await saveOrderRecord(updated);
-      console.log(`✅ Order ${session.id} marked PAID.`);
+      console.log(`✅ Order ${session.id} marked PAID and auto-provisioned.`);
 
       // Trigger intake-request email (fire and forget)
       if (session.customer_details?.email) {
@@ -530,6 +582,8 @@ app.get('/api/resolve-slug/:slug', async (req, res) => {
 
     if (result.type === 'template') {
       res.json({ type: 'template', template: result });
+    } else if (result.type === 'claim') {
+      res.json({ type: 'claim', slug });
     } else if (result.destination === '#pending-build') {
       // Premium tier — page is still being built. Return a holding template.
       res.json({
@@ -983,6 +1037,59 @@ app.patch('/api/members/bridges/:slug', apiLimiter, async (req, res) => {
   }
 });
 
+// POST /api/members/bridges/:slug/claim — claim an unclaimed bridge via cryptographic proof (the physical QR scan)
+app.post('/api/members/bridges/:slug/claim', apiLimiter, async (req, res) => {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const { slug } = req.params;
+  const { s } = req.query;
+
+  if (!s) return res.status(400).json({ error: 'Cryptographic proof required to claim identity.' });
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+    // 1. Verify the signature
+    const secret = process.env.QR_SECRET || 'qonnect-core-secret';
+    const expectedHash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
+    if (s !== expectedHash) {
+      return res.status(403).json({ error: 'Invalid proof. You must scan the physical garment to claim it.' });
+    }
+
+    // 2. Verify bridge isn't already claimed by someone else
+    const { data: bridge } = await supabase
+      .from('bridges')
+      .select('owner_id, destination_type')
+      .eq('slug', slug)
+      .single();
+
+    if (!bridge) return res.status(404).json({ error: 'Bridge not found.' });
+    if (bridge.owner_id && bridge.owner_id !== user.id) {
+      return res.status(409).json({ error: 'This identity has already been secured by another user.' });
+    }
+
+    // 3. Claim it
+    const { error } = await supabase
+      .from('bridges')
+      .update({ 
+        owner_id: user.id, 
+        destination_type: bridge.destination_type === 'unclaimed' ? 'other' : bridge.destination_type,
+        updated_at: new Date().toISOString() 
+      })
+      .eq('slug', slug);
+
+    if (error) throw error;
+
+    console.log(`👤 User ${user.email} claimed bridge "${slug}"`);
+    res.json({ success: true, message: 'Identity secured. Welcome to the network.' });
+  } catch (err) {
+    console.error('❌ Bridge claim error:', err.message);
+    res.status(500).json({ error: 'Could not secure identity.' });
+  }
+});
+
 // POST /api/members/bridges/:slug/regenerate-art — trigger AI QR regeneration
 app.post('/api/members/bridges/:slug/regenerate-art', apiLimiter, async (req, res) => {
   const user = await requireAuth(req, res);
@@ -1222,7 +1329,7 @@ app.get('/api/members/orders', apiLimiter, async (req, res) => {
 // MAGIC LINK AUTH
 // ---------------------------------------------------------------------------
 app.post('/api/auth/claim-bridge', apiLimiter, async (req, res) => {
-  const { email } = req.body;
+  const { email, redirectTo } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required.' });
 
   const { createClient } = await import('@supabase/supabase-js');
@@ -1231,7 +1338,7 @@ app.post('/api/auth/claim-bridge', apiLimiter, async (req, res) => {
   try {
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${req.headers.origin || process.env.PUBLIC_URL}/members` }
+      options: { emailRedirectTo: redirectTo || `${req.headers.origin || process.env.PUBLIC_URL}/members` }
     });
 
     if (error) {

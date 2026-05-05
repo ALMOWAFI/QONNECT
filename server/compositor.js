@@ -60,7 +60,7 @@ const EDITION_CONFIG = {
  * @param {string} orderId - The short order ID or session ID
  * @param {string} edition - The edition name (e.g., 'robotics', 'medicine')
  * @param {string} slug - The unique QONNECT slug for the QR code
- * @returns {Promise<string>} - The relative path to the generated image
+ * @returns {Promise<string>} - The public URL of the generated image in Supabase Storage
  */
 export async function generateCompositeAsset(orderId, edition, slug) {
   const editionKey = String(edition).toLowerCase().includes('robotics') ? 'robotics'
@@ -128,18 +128,8 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       });
     }
 
-    // 3. Ensure the output directory exists
-    const outDir = path.join(__dirname, '../print-assets');
-    if (!fs.existsSync(outDir)) {
-      fs.mkdirSync(outDir, { recursive: true });
-    }
-
-    const shortOrder = orderId.slice(-6).toUpperCase();
-    const fileName = `ORDER-${shortOrder}_${editionKey.toUpperCase()}_PRINT-FILE.png`;
-    const outPath = path.join(outDir, fileName);
-
-    // 4. Composite the scaled QR onto the base image
-    await sharp(baseImagePath)
+    // 3. Composite and generate final buffer
+    const compositeBuffer = await sharp(baseImagePath)
       .composite([
         {
           input: qrBuffer,
@@ -149,10 +139,29 @@ export async function generateCompositeAsset(orderId, edition, slug) {
         }
       ])
       .png({ quality: 100 })
-      .toFile(outPath);
+      .toBuffer();
 
-    console.log(`✅ Asset generated at scaled resolution (${metadata.width}px): ${fileName}`);
-    return `/print-assets/${fileName}`;
+    // 4. Upload to Supabase Storage (Task 3)
+    const shortOrder = orderId.slice(-6).toUpperCase();
+    const fileName = `ORDER-${shortOrder}_${editionKey.toUpperCase()}_PRINT-FILE_${Date.now()}.png`;
+
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('print-assets')
+      .upload(fileName, compositeBuffer, { contentType: 'image/png', upsert: true });
+
+    if (uploadError) {
+      console.error('❌ Supabase Upload Error:', uploadError.message);
+      throw new Error(`Upload failed: ${uploadError.message}`);
+    }
+
+    const { data: publicUrlData } = supabase.storage.from('print-assets').getPublicUrl(fileName);
+    const assetUrl = publicUrlData.publicUrl;
+
+    console.log(`✅ Asset generated at scaled resolution (${metadata.width}px) and stored in cloud: ${assetUrl}`);
+    return assetUrl;
 
   } catch (error) {
     console.error('❌ Auto-Compositor Failed:', error.message);

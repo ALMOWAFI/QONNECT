@@ -13,6 +13,7 @@ import Bridge from "./pages/Bridge";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 import Members from "./pages/Members";
+import Claim from "./pages/Claim";
 import NotFound from "./pages/NotFound";
 import { useCartSync } from "./hooks/useCartSync";
 
@@ -83,6 +84,7 @@ const router = createBrowserRouter([
       { path: "/product/:handle", element: <Product /> },
       { path: "/success", element: <Success /> },
       { path: "/b/:slug", element: <Bridge /> },
+      { path: "/claim", element: <Claim /> },
       { path: "/admin", element: <AdminGuard /> },
       { path: "/login", element: <Login /> },
       { path: "/members", element: <Members /> },
