@@ -547,50 +547,60 @@ app.get('/api/qr/:slug.svg', async (req, res) => {
 // AI ART QR — tier-aware, generated via Replicate, stored on bridge row
 // ---------------------------------------------------------------------------
 
-const TIER_PROMPTS = {
+// Monster Labs ControlNet — prompts tuned per edition for maximum visual impact.
+// The model embeds the QR pattern into a photorealistic scene.
+// controlnet_conditioning_scale: 1.9 = good scan reliability + strong artistic blend.
+const EDITION_PROMPTS = {
   tech: {
-    prompt:          'circuit board traces, neural network nodes, neon cyan glowing lines, deep blue dark background, cyberpunk, high detail, intricate, sharp focus, 8k',
-    negative_prompt: 'text, letters, words, watermark, ugly, blurry, low quality, pixelated, deformed',
+    prompt:          'cyberpunk tokyo alley at night, neon signs reflecting on wet asphalt, electric blue and violet light, rain, cinematic, ultra photorealistic, 8k',
+    negative_prompt: 'text, letters, words, watermark, ugly, blurry, low quality, deformed, cartoon, anime, painting',
   },
   medical: {
-    prompt:          'organic cell structure cross-section, bioluminescent blue-green glow, clean white background, DNA double helix, precision scientific illustration, soft light, minimal, elegant',
-    negative_prompt: 'text, letters, ugly, blurry, low quality, dark, horror, scary, deformed',
+    prompt:          'bioluminescent deep ocean scene, glowing blue jellyfish, ethereal underwater light shafts, dark water, photorealistic, 8k, ultra detailed, serene',
+    negative_prompt: 'text, letters, words, watermark, ugly, blurry, low quality, deformed, horror, dark, gory',
   },
   business: {
-    prompt:          'luxury black fabric with fine gold thread weave, premium textile close-up, gold silk embroidery on dark velvet, elegant, minimal, high fashion, studio lighting',
-    negative_prompt: 'text, letters, ugly, blurry, low quality, colorful, bright, cartoon',
+    prompt:          'luxury art deco marble corridor, gold leaf ceiling, dramatic shadow geometry, warm amber light, editorial fashion location, 8k, cinematic, architectural photography',
+    negative_prompt: 'text, letters, words, watermark, ugly, blurry, low quality, deformed, cartoon, colorful, neon',
   },
 };
 
-// Fire-and-forget: generate AI art QR via Replicate and store result
+// Fire-and-forget: generate AI art QR via Monster Labs ControlNet (andreasjansson/qrcode on Replicate)
 async function generateAndStoreArtQr(slug, tier = 'business') {
   if (!process.env.REPLICATE_API_TOKEN) {
     console.log(`⚠️  REPLICATE_API_TOKEN not set — skipping AI QR for "${slug}"`);
     return;
   }
 
-  const { prompt, negative_prompt } = TIER_PROMPTS[tier] || TIER_PROMPTS.business;
+  // Map tier/edition name to prompt key
+  const promptKey = String(tier).toLowerCase().includes('tech') || String(tier).toLowerCase().includes('robotics') ? 'tech'
+                  : String(tier).toLowerCase().includes('med') ? 'medical'
+                  : 'business';
+
+  const { prompt, negative_prompt } = EDITION_PROMPTS[promptKey];
   const qrUrl = `${QR_BASE_URL}/b/${slug}`;
 
-  console.log(`🎨 Generating AI QR for slug "${slug}" (tier: ${tier}) …`);
+  console.log(`🎨 Generating Monster Labs art QR for "${slug}" (edition: ${promptKey}) …`);
 
   try {
     const Replicate = (await import('replicate')).default;
     const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
 
-    // lucataco/illusion-diffusion-hq — latest version
-    const output = await replicate.run('lucataco/illusion-diffusion-hq', {
+    // andreasjansson/qrcode — Monster Labs control_v1p_sd15_qrcode_monster
+    // Tuned: high conditioning scale keeps the QR scannable while the scene wraps around it
+    const output = await replicate.run('andreasjansson/qrcode', {
       input: {
         prompt,
         negative_prompt,
-        qr_code_content:              qrUrl,
-        guidance_scale:               7.5,
-        controlnet_conditioning_scale: 1.5,
-        num_inference_steps:          40,
-        width:                        768,
-        height:                       768,
-        qrcode_background:            'white',
-        seed:                         Math.floor(Math.random() * 2147483647),
+        qr_code_content:               qrUrl,
+        controlnet_conditioning_scale: 1.9,
+        guidance_scale:                7.5,
+        num_inference_steps:           40,
+        width:                         768,
+        height:                        768,
+        border:                        1,
+        qrcode_background:             'gray',
+        seed:                          Math.floor(Math.random() * 2147483647),
       },
     });
 
@@ -599,7 +609,7 @@ async function generateAndStoreArtQr(slug, tier = 'business') {
     if (!resultUrl) throw new Error('Replicate returned no output.');
 
     await saveArtQrUrl(slug, String(resultUrl));
-    console.log(`✅ AI QR for "${slug}" stored: ${resultUrl}`);
+    console.log(`✅ Monster Labs art QR for "${slug}" stored: ${resultUrl}`);
   } catch (err) {
     console.error(`❌ AI QR generation failed for "${slug}":`, err.message);
   }

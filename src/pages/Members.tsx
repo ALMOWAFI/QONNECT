@@ -106,8 +106,9 @@ type ArtStatus = "pending" | "ready" | "unavailable";
 function QrPanel({ slug }: { slug: string }) {
   const [artStatus, setArtStatus] = useState<ArtStatus>("pending");
   const [artUrl, setArtUrl]       = useState<string | null>(null);
-  const [showArt, setShowArt]     = useState(false);
-  const pollRef                   = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Art is the default view — toggle to standard on demand
+  const [showStandard, setShowStandard] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +130,7 @@ function QrPanel({ slug }: { slug: string }) {
     };
 
     check();
-    pollRef.current = setInterval(check, 8000); // poll every 8s while pending
+    pollRef.current = setInterval(check, 8000);
 
     return () => {
       cancelled = true;
@@ -137,72 +138,84 @@ function QrPanel({ slug }: { slug: string }) {
     };
   }, [slug]);
 
-  const active = showArt && artStatus === "ready" && artUrl;
-  const imgSrc  = active ? artUrl! : `/api/qr/${slug}.png?size=160`;
+  const showingArt = artStatus === "ready" && artUrl && !showStandard;
 
   return (
-    <div className="border border-border/50 p-3 space-y-3">
-      {/* Header */}
+    <div className="space-y-3">
+      {/* Art QR — full-width hero display */}
+      {showingArt ? (
+        <div className="relative group">
+          <img
+            key={artUrl}
+            src={artUrl!}
+            alt={`AI art QR code for ${slug}`}
+            className="w-full aspect-square object-cover block transition-opacity duration-500"
+            loading="lazy"
+          />
+          {/* Subtle overlay label */}
+          <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-2 py-1">
+            <Sparkles className="w-2.5 h-2.5 text-primary" />
+            <span className="text-[8px] uppercase tracking-[0.2em] text-primary">AI Edition</span>
+          </div>
+        </div>
+      ) : (
+        <div className="border border-border/30 p-4">
+          <img
+            src={`/api/qr/${slug}.png?size=512`}
+            alt={`QR code for ${slug}`}
+            className="w-full aspect-square object-contain block"
+            loading="lazy"
+          />
+        </div>
+      )}
+
+      {/* Toggle + status row */}
       <div className="flex items-center justify-between">
-        <p className="text-[9px] uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-1.5">
-          <QrCode className="w-3 h-3" /> Your QR
-        </p>
         {artStatus === "ready" && (
           <button
-            onClick={() => setShowArt(v => !v)}
-            className={`flex items-center gap-1 text-[9px] uppercase tracking-[0.2em] px-2 py-1 border transition-all duration-200 ${
-              showArt
-                ? "border-primary/40 text-primary bg-primary/5"
-                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-            }`}
+            onClick={() => setShowStandard(v => !v)}
+            className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors duration-200"
           >
-            <Sparkles className="w-2.5 h-2.5" />
-            {showArt ? "Standard" : "Art"}
+            <QrCode className="w-3 h-3" />
+            {showStandard ? "Show art" : "Show standard"}
           </button>
         )}
         {artStatus === "pending" && (
-          <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
-            <Loader2 className="w-2.5 h-2.5 animate-spin" /> Generating art…
+          <span className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Generating AI edition…
           </span>
+        )}
+        {artStatus === "unavailable" && (
+          <span className="text-[9px] text-muted-foreground">Standard QR</span>
         )}
       </div>
 
-      {/* QR image */}
-      <img
-        key={imgSrc}
-        src={imgSrc}
-        alt={`QR code for ${slug}`}
-        width={80}
-        height={80}
-        className="w-20 h-20 mx-auto block transition-opacity duration-300"
-        loading="lazy"
-      />
-
       {/* Download buttons */}
       <div className="flex gap-2">
-        {active ? (
+        {showingArt ? (
           <a
             href={artUrl!}
             download={`qonnect-${slug}-art.png`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-1.5 border border-border py-2 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all duration-200 active:scale-[0.97]"
+            className="flex-1 flex items-center justify-center gap-1.5 border border-primary/30 bg-primary/5 py-2.5 text-[9px] uppercase tracking-[0.2em] text-primary hover:bg-primary/10 transition-all duration-200 active:scale-[0.97]"
           >
-            <Download className="w-2.5 h-2.5" /> Art PNG
+            <Download className="w-2.5 h-2.5" /> Download Art QR
           </a>
         ) : (
           <>
             <a
               href={`/api/qr/${slug}.png?size=1024`}
               download={`qonnect-${slug}.png`}
-              className="flex-1 flex items-center justify-center gap-1.5 border border-border py-2 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all duration-200 active:scale-[0.97]"
+              className="flex-1 flex items-center justify-center gap-1.5 border border-border py-2.5 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all duration-200 active:scale-[0.97]"
             >
               <Download className="w-2.5 h-2.5" /> PNG
             </a>
             <a
               href={`/api/qr/${slug}.svg`}
               download={`qonnect-${slug}.svg`}
-              className="flex-1 flex items-center justify-center gap-1.5 border border-border py-2 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all duration-200 active:scale-[0.97]"
+              className="flex-1 flex items-center justify-center gap-1.5 border border-border py-2.5 text-[9px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all duration-200 active:scale-[0.97]"
             >
               <Download className="w-2.5 h-2.5" /> SVG
             </a>
