@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 import { getArtQrUrl } from './orderStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -69,7 +70,10 @@ export async function generateCompositeAsset(orderId, edition, slug) {
                    : 'default';
 
   const config = EDITION_CONFIG[editionKey];
-  const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}`;
+  
+  const secret = process.env.QR_SECRET || 'qonnect-core-secret';
+  const hash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
+  const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}?s=${hash}`;
 
   console.log(`🖼️ Auto-Compositing ${editionKey} design for order ${orderId} (Slug: ${slug})`);
 
@@ -98,9 +102,17 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       if (!response.ok) throw new Error('Failed to fetch AI Art QR');
       const arrayBuffer = await response.arrayBuffer();
       
-      // Resize the AI image to exactly match the scaledQrSize so it fits the hoodie design perfectly
+      const rounding = Math.round(scaledQrSize * 0.05); // 5% border radius
+      const mask = Buffer.from(
+        `<svg width="${scaledQrSize}" height="${scaledQrSize}">
+          <rect x="0" y="0" width="${scaledQrSize}" height="${scaledQrSize}" rx="${rounding}" ry="${rounding}" fill="white"/>
+        </svg>`
+      );
+
+      // Resize the AI image and apply the rounded mask so it integrates beautifully
       qrBuffer = await sharp(Buffer.from(arrayBuffer))
         .resize(scaledQrSize, scaledQrSize)
+        .composite([{ input: mask, blend: 'dest-in' }])
         .png()
         .toBuffer();
     } else {

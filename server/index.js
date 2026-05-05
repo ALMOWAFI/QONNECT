@@ -8,6 +8,7 @@ import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { fileURLToPath } from 'url';
 import QRCode from 'qrcode';
+import crypto from 'crypto';
 import {
   getOrderRecord,
   saveOrderRecord,
@@ -438,14 +439,6 @@ app.post('/api/orders/:sessionId/intake', apiLimiter, async (req, res) => {
     for (const entry of normalizedEntries) {
       if (entry.mode === 'bridge' && entry.slug) {
         await writeBridge(entry, saved._dbId || null);
-
-        // Fire AI art QR generation async — does not block the response
-        const tier = updatedRecord.items?.find(i => i.itemKey === entry.itemKey)?.tier
-          || updatedRecord.items?.[0]?.tier
-          || 'business';
-        generateAndStoreArtQr(entry.slug, tier).catch(err =>
-          console.error('AI QR background error:', err.message)
-        );
       }
     }
 
@@ -455,6 +448,13 @@ app.post('/api/orders/:sessionId/intake', apiLimiter, async (req, res) => {
       try {
         const bridgeEntry = normalizedEntries.find(e => e.mode === 'bridge' && e.slug);
         if (!bridgeEntry) return; // direct-link orders have no slug to embed
+
+        const tier = updatedRecord.items?.find(i => i.itemKey === bridgeEntry.itemKey)?.tier
+          || updatedRecord.items?.[0]?.tier
+          || 'business';
+
+        // Wait for the AI art generation so the compositor actually has it
+        await generateAndStoreArtQr(bridgeEntry.slug, tier);
 
         const { generateCompositeAsset } = await import('./compositor.js');
         const item      = updatedRecord.items?.[0] || {};
@@ -510,8 +510,17 @@ app.get('/api/slugs/:slug/available', apiLimiter, async (req, res) => {
 // ---------------------------------------------------------------------------
 app.get('/api/resolve-slug/:slug', async (req, res) => {
   const { slug } = req.params;
+  const s = req.query.s;
 
   try {
+    if (s) {
+      const secret = process.env.QR_SECRET || 'qonnect-core-secret';
+      const expectedHash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
+      if (s !== expectedHash) {
+        console.warn(`🚨 WARNING: Cryptographic mismatch for slug "${slug}". Counterfeit scan detected.`);
+      }
+    }
+
     const result = await findDestinationBySlug(slug);
 
     if (!result) return res.status(404).json({ error: 'Identity not found.' });
