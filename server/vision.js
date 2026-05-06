@@ -15,7 +15,7 @@ export async function detectOpticalCenter(imageBuffer, editionName) {
   }
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     const payload = {
       contents: [{
@@ -39,6 +39,7 @@ export async function detectOpticalCenter(imageBuffer, editionName) {
 
     if (!response.ok) {
         const errData = await response.json();
+        console.error(`❌ Gemini API Error (${response.status}):`, errData);
         throw new Error(errData.error?.message || "Gemini API request failed");
     }
 
