@@ -22,80 +22,67 @@ const EDITION_CONFIG = {
     baseWidth: 2400,
     qrSize: 340,
     left: 430,   
-    top: 740,     // Final Recalibrated Y
+    top: 680,     // Shifted up to center between palms
     accent: '#0066ff', 
+    maskType: 'squircle',
   },
   'medicine': {
     baseImage: '../src/assets/b7e9.png',
     baseWidth: 2390,
     qrSize: 300,
     left: 450,
-    top: 630,
+    top: 560,     // Shifted up
     accent: '#00cc88', 
+    maskType: 'squircle',
   },
   'business': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
     qrSize: 280,
     left: 460,
-    top: 570,
+    top: 500,     // Shifted up
     accent: '#a68b5a', 
+    maskType: 'squircle',
   },
   'default': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
     qrSize: 280,
     left: 460,
-    top: 570,
+    top: 500,
     accent: '#000000',
+    maskType: 'squircle',
   }
 };
 
 /**
- * Recessed Hardware Lens Generator
- * High-Contrast Black Dots on a Radial Gradient Glow
+ * Precision Squircle Lens Generator
+ * High-Contrast Black Dots on a Wide Radial Gradient
  */
-async function generateRecessedLensQr(qrUrl, accentColor, sizePx) {
-  // Generate the high-res dots first
+async function generateSquircleLensQr(qrUrl, accentColor, sizePx) {
   const qrBuffer = await QRCode.toBuffer(qrUrl, {
     width: sizePx * 2,
     margin: 4,
     errorCorrectionLevel: 'H',
     color: {
-      dark: '#000000', // Pure black dots for 100% scanning
-      light: '#00000000' // Transparent background
+      dark: '#000000',
+      light: '#00000000'
     }
   });
 
-  // Create the "Luxury Hardware" Background SVG
   const background = Buffer.from(
     `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <radialGradient id="lensGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-          <stop offset="0%" style="stop-color:${accentColor};stop-opacity:0.4" />
-          <stop offset="70%" style="stop-color:#ffffff;stop-opacity:0.9" />
-          <stop offset="100%" style="stop-color:#ffffff;stop-opacity:1" />
+          <stop offset="0%" style="stop-color:${accentColor};stop-opacity:0.3" />
+          <stop offset="85%" style="stop-color:#ffffff;stop-opacity:1" />
         </radialGradient>
-        <filter id="innerShadow">
-          <feComponentTransfer in="SourceAlpha">
-            <feFuncA type="table" tableValues="1 0" />
-          </feComponentTransfer>
-          <feGaussianBlur stdDeviation="3" />
-          <feOffset dx="0" dy="2" result="offsetblur" />
-          <feFlood flood-color="black" flood-opacity="0.3" result="color" />
-          <feComposite in2="offsetblur" operator="in" />
-          <feComposite in2="SourceAlpha" operator="in" />
-          <feMerge>
-            <feMergeNode />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
       </defs>
-      <circle cx="${sizePx/2}" cy="${sizePx/2}" r="${sizePx/2}" fill="url(#lensGlow)" filter="url(#innerShadow)"/>
+      <rect x="0" y="0" width="${sizePx}" height="${sizePx}" rx="${sizePx * 0.2}" ry="${sizePx * 0.2}" fill="url(#lensGlow)"/>
     </svg>`
   );
 
-  const dotsProcessed = await sharp(qrBuffer).resize(Math.round(sizePx * 0.9), Math.round(sizePx * 0.9)).png().toBuffer();
+  const dotsProcessed = await sharp(qrBuffer).resize(Math.round(sizePx * 0.85), Math.round(sizePx * 0.85)).png().toBuffer();
 
   return sharp(background)
     .composite([{ input: dotsProcessed, blend: 'over' }])
@@ -119,7 +106,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
   const hash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
   const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}?s=${hash}`;
 
-  console.log(`🏗️  Atelier Engine v8.0: Constructing Recessed Lens for "${slug}"`);
+  console.log(`🏗️  Atelier Engine v9.0: Precision Squircle for "${slug}"`);
 
   try {
     const baseImagePath = path.join(__dirname, config.baseImage);
@@ -131,7 +118,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     const sLeft = Math.round(config.left * scaleFactor);
     const sTop  = Math.round(config.top * scaleFactor);
 
-    // 1. Generate Luxury Lens
+    // 1. Generate Squircle Lens
     let finalQr;
     const aiArtUrl = await getArtQrUrl(slug);
 
@@ -140,17 +127,17 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       const arrayBuffer = await response.arrayBuffer();
       finalQr = await sharp(Buffer.from(arrayBuffer))
         .resize(sSize, sSize)
-        .flatten({ background: '#ffffff' }) // AI Art always on white for safety
+        .flatten({ background: '#ffffff' })
         .composite([{ 
-          input: Buffer.from(`<svg width="${sSize}" height="${sSize}"><circle cx="${sSize/2}" cy="${sSize/2}" r="${sSize/2}" fill="white"/></svg>`), 
+          input: Buffer.from(`<svg width="${sSize}" height="${sSize}"><rect x="0" y="0" width="${sSize}" height="${sSize}" rx="${sSize * 0.2}" ry="${sSize * 0.2}" fill="white"/></svg>`), 
           blend: 'dest-in' 
         }])
         .toBuffer();
     } else {
-      finalQr = await generateRecessedLensQr(qrUrl, config.accent, sSize);
+      finalQr = await generateSquircleLensQr(qrUrl, config.accent, sSize);
     }
 
-    // 2. Composite with standard blending for maximum quality
+    // 2. Final Merging
     const finalBuffer = await sharp(baseImageBuffer)
       .composite([
         {
