@@ -10,65 +10,97 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * QONNECT ATELIER ENGINE (v7.0) - THE INVERTED COIN
+ * QONNECT ATELIER ENGINE (v8.0) - THE RECESSED LENS
  * ------------------------------------------------
- * Focused on:
- *  1. Optical Centering (Lower Y-anchors)
- *  2. Subtractive High-Contrast (Scannability)
- *  3. Feathered Blending (Technical Luxury)
+ * Sophisticated hardware-inspired aesthetic.
+ * Radial gradients + Depth filters + Max contrast.
  */
 
 const EDITION_CONFIG = {
   'robotics': {
     baseImage: '../src/assets/dmts.png',
     baseWidth: 2400,
-    qrSize: 320,
-    left: 440,
-    top: 760,     // Shifted up from 800
-    accent: '#0066ff', // Deeper blue for better contrast on white
+    qrSize: 340,
+    left: 430,   
+    top: 740,     // Final Recalibrated Y
+    accent: '#0066ff', 
   },
   'medicine': {
     baseImage: '../src/assets/b7e9.png',
     baseWidth: 2390,
-    qrSize: 280,
-    left: 460,
-    top: 650,     // Shifted up from 690
-    accent: '#00cc88', // Deeper green
+    qrSize: 300,
+    left: 450,
+    top: 630,
+    accent: '#00cc88', 
   },
   'business': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
-    qrSize: 260,
-    left: 470,
-    top: 590,     // Shifted up from 630
-    accent: '#a68b5a', // Deeper gold
+    qrSize: 280,
+    left: 460,
+    top: 570,
+    accent: '#a68b5a', 
   },
   'default': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
-    qrSize: 260,
-    left: 470,
-    top: 590,
+    qrSize: 280,
+    left: 460,
+    top: 570,
     accent: '#000000',
   }
 };
 
 /**
- * Technical Lens QR Generator (v7.1)
- * High-Contrast Accent Dots on White Background
+ * Recessed Hardware Lens Generator
+ * High-Contrast Black Dots on a Radial Gradient Glow
  */
-async function generateTechnicalLensQr(qrUrl, color, sizePx) {
+async function generateRecessedLensQr(qrUrl, accentColor, sizePx) {
+  // Generate the high-res dots first
   const qrBuffer = await QRCode.toBuffer(qrUrl, {
     width: sizePx * 2,
-    margin: 6, // Increased quiet zone
+    margin: 4,
     errorCorrectionLevel: 'H',
     color: {
-      dark: color,    // Accent color dots
-      light: '#ffffff' // Pure white background
+      dark: '#000000', // Pure black dots for 100% scanning
+      light: '#00000000' // Transparent background
     }
   });
 
-  return sharp(qrBuffer).resize(sizePx, sizePx).png().toBuffer();
+  // Create the "Luxury Hardware" Background SVG
+  const background = Buffer.from(
+    `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="lensGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+          <stop offset="0%" style="stop-color:${accentColor};stop-opacity:0.4" />
+          <stop offset="70%" style="stop-color:#ffffff;stop-opacity:0.9" />
+          <stop offset="100%" style="stop-color:#ffffff;stop-opacity:1" />
+        </radialGradient>
+        <filter id="innerShadow">
+          <feComponentTransfer in="SourceAlpha">
+            <feFuncA type="table" tableValues="1 0" />
+          </feComponentTransfer>
+          <feGaussianBlur stdDeviation="3" />
+          <feOffset dx="0" dy="2" result="offsetblur" />
+          <feFlood flood-color="black" flood-opacity="0.3" result="color" />
+          <feComposite in2="offsetblur" operator="in" />
+          <feComposite in2="SourceAlpha" operator="in" />
+          <feMerge>
+            <feMergeNode />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <circle cx="${sizePx/2}" cy="${sizePx/2}" r="${sizePx/2}" fill="url(#lensGlow)" filter="url(#innerShadow)"/>
+    </svg>`
+  );
+
+  const dotsProcessed = await sharp(qrBuffer).resize(Math.round(sizePx * 0.9), Math.round(sizePx * 0.9)).png().toBuffer();
+
+  return sharp(background)
+    .composite([{ input: dotsProcessed, blend: 'over' }])
+    .png()
+    .toBuffer();
 }
 
 /**
@@ -87,7 +119,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
   const hash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
   const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}?s=${hash}`;
 
-  console.log(`🏗️  Atelier Engine v7.1: Precision Build for "${slug}"`);
+  console.log(`🏗️  Atelier Engine v8.0: Constructing Recessed Lens for "${slug}"`);
 
   try {
     const baseImagePath = path.join(__dirname, config.baseImage);
@@ -99,38 +131,30 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     const sLeft = Math.round(config.left * scaleFactor);
     const sTop  = Math.round(config.top * scaleFactor);
 
-    // 1. Generate High-Contrast Lens QR
-    let qrBuffer;
+    // 1. Generate Luxury Lens
+    let finalQr;
     const aiArtUrl = await getArtQrUrl(slug);
 
     if (aiArtUrl && aiArtUrl !== 'FAILED') {
       const response = await fetch(aiArtUrl);
       const arrayBuffer = await response.arrayBuffer();
-      qrBuffer = await sharp(Buffer.from(arrayBuffer))
+      finalQr = await sharp(Buffer.from(arrayBuffer))
         .resize(sSize, sSize)
-        .flatten({ background: '#ffffff' })
+        .flatten({ background: '#ffffff' }) // AI Art always on white for safety
+        .composite([{ 
+          input: Buffer.from(`<svg width="${sSize}" height="${sSize}"><circle cx="${sSize/2}" cy="${sSize/2}" r="${sSize/2}" fill="white"/></svg>`), 
+          blend: 'dest-in' 
+        }])
         .toBuffer();
     } else {
-      qrBuffer = await generateTechnicalLensQr(qrUrl, config.accent, sSize);
+      finalQr = await generateRecessedLensQr(qrUrl, config.accent, sSize);
     }
 
-    // 2. Circular Mask with Minimal Feather (Razor Sharp Finders)
-    const mask = Buffer.from(
-      `<svg width="${sSize}" height="${sSize}">
-        <circle cx="${sSize/2}" cy="${sSize/2}" r="${sSize/2}" fill="white"/>
-      </svg>`
-    );
-
-    const processedQr = await sharp(qrBuffer)
-      .composite([{ input: mask, blend: 'dest-in' }])
-      .png()
-      .toBuffer();
-
-    // 3. Composite into the portal
+    // 2. Composite with standard blending for maximum quality
     const finalBuffer = await sharp(baseImageBuffer)
       .composite([
         {
-          input: processedQr,
+          input: finalQr,
           top: sTop,
           left: sLeft,
           blend: 'over'
@@ -139,9 +163,9 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       .png({ quality: 100 })
       .toBuffer();
 
-    // 4. Cloud Security
+    // 3. Cloud Vault persistence
     const shortId = String(orderId).slice(-6).toUpperCase();
-    const fileName = `ATELIER_V7_ORDER-${shortId}_${eKey.toUpperCase()}_${Date.now()}.png`;
+    const fileName = `ATELIER_V8_ORDER-${shortId}_${eKey.toUpperCase()}_${Date.now()}.png`;
 
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -156,7 +180,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     return publicUrl;
 
   } catch (error) {
-    console.error('❌ Atelier v7.0 Failed:', error.message);
+    console.error('❌ Atelier v8.0 Failed:', error.message);
     throw error;
   }
 }
