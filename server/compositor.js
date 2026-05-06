@@ -10,72 +10,41 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * QONNECT CINEMATIC ENGINE (v5.1)
- * ------------------------------
- * Precision Calibration & High-Density Glow.
+ * QONNECT BULLETPROOF ENGINE (v6.0)
+ * --------------------------------
+ * Maximum Scannability & Precision Centering.
  */
 
 const EDITION_CONFIG = {
   'robotics': {
     baseImage: '../src/assets/dmts.png',
     baseWidth: 2400,
-    qrSize: 400,
-    left: 425,   
-    top: 720,    
-    accent:  '#99c6ff', 
+    qrSize: 420, 
+    left: 390,   // (600 - 420/2 = 390) -> Perfectly centered in 1200px left frame
+    top: 660,    
   },
   'medicine': {
     baseImage: '../src/assets/b7e9.png',
     baseWidth: 2390,
-    qrSize: 360,
-    left: 565,   
-    top: 645,    
-    accent:  '#99fadc', 
+    qrSize: 380,
+    left: 410,   // (600 - 190)
+    top: 640,    
   },
   'business': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
-    qrSize: 340,
-    left: 495,   
-    top: 575,    
-    accent:  '#D4C5B0', 
+    qrSize: 360,
+    left: 420,   // (600 - 180)
+    top: 580,    
   },
   'default': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
-    qrSize: 340,
-    left: 495,
-    top: 575,
-    accent:  '#FFFFFF',
+    qrSize: 360,
+    left: 420,
+    top: 580,
   }
 };
-
-/**
- * Custom SVG Generator for "Technical Luxury" QR Styling
- */
-function generateTechnicalQrSvg(qrUrl, color, sizePx) {
-  const qrData = QRCode.create(qrUrl, { errorCorrectionLevel: 'H' });
-  const { modules } = qrData;
-  const mSize = modules.size;
-  const dotUnit = 10;
-  const canvasDim = mSize * dotUnit;
-  
-  let svgPaths = '';
-  for (let y = 0; y < mSize; y++) {
-    for (let x = 0; x < mSize; x++) {
-      if (modules.get(x, y)) {
-        svgPaths += `<rect x="${x * dotUnit + 1}" y="${y * dotUnit + 1}" width="${dotUnit - 2}" height="${dotUnit - 2}" rx="2.5" fill="${color}"/>`;
-      }
-    }
-  }
-
-  return Buffer.from(
-    `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${canvasDim} ${canvasDim}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100%" height="100%" fill="black"/>
-      ${svgPaths}
-    </svg>`
-  );
-}
 
 /**
  * Core Compositor: Merges the Digital Identity into the Physical Garment
@@ -93,7 +62,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
   const hash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
   const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}?s=${hash}`;
 
-  console.log(`🏗️  Atelier Engine: Precision Calibration for "${slug}" [${eKey.toUpperCase()}]`);
+  console.log(`🏗️  Atelier Engine: Bulletproof v6.0 for "${slug}" [${eKey.toUpperCase()}]`);
 
   try {
     const baseImagePath = path.join(__dirname, config.baseImage);
@@ -106,61 +75,59 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     const sLeft = Math.round(config.left * scaleFactor);
     const sTop  = Math.round(config.top * scaleFactor);
 
-    // 1. Generate/Fetch the QR source
-    let qrSource;
+    // 1. Generate/Fetch the QR source (High-Contrast Black on White for 100% scan rate)
+    let qrBuffer;
     const aiArtUrl = await getArtQrUrl(slug);
 
     if (aiArtUrl && aiArtUrl !== 'FAILED') {
       const response = await fetch(aiArtUrl);
       if (!response.ok) throw new Error('Failed to fetch AI Art');
-      qrSource = Buffer.from(await response.arrayBuffer());
+      const arrayBuffer = await response.arrayBuffer();
+      
+      qrBuffer = await sharp(Buffer.from(arrayBuffer))
+        .resize(sSize, sSize)
+        .flatten({ background: '#ffffff' }) // Ensure white backing for AI art
+        .png()
+        .toBuffer();
     } else {
-      qrSource = generateTechnicalQrSvg(qrUrl, config.accent, sSize);
+      // Bulletproof standard QR with 4-module quiet zone
+      qrBuffer = await QRCode.toBuffer(qrUrl, {
+        width: sSize,
+        margin: 4,
+        errorCorrectionLevel: 'H',
+        color: { dark: '#000000', light: '#ffffffff' }
+      });
     }
 
-    // 2. Create the "Cinematic Glow" layers
-    const mainQr = await sharp(qrSource)
-      .resize(sSize, sSize)
-      .flatten({ background: '#000000' })
-      .png()
-      .toBuffer();
-    
-    const glowHalo = await sharp(mainQr)
-      .blur(Math.round(sSize * 0.025)) 
-      .modulate({ brightness: 2.2, saturation: 1.2 })
-      .png()
-      .toBuffer();
-
-    // 3. Precision Masking
+    // 2. High-Precision Masking (Circular for a "Lens" look)
     const mask = Buffer.from(
       `<svg width="${sSize}" height="${sSize}">
         <circle cx="${sSize/2}" cy="${sSize/2}" r="${sSize/2}" fill="white"/>
       </svg>`
     );
 
-    // 4. Final Atelier Merging
+    const processedQr = await sharp(qrBuffer)
+      .resize(sSize, sSize)
+      .composite([{ input: mask, blend: 'dest-in' }])
+      .png()
+      .toBuffer();
+
+    // 3. Final Placement with standard 'over' blending for maximum contrast
     const finalBuffer = await sharp(baseImagePath)
       .composite([
         {
-          input: glowHalo,
+          input: processedQr,
           top: sTop,
           left: sLeft,
-          blend: 'screen',
-          opacity: 0.85
-        },
-        {
-          input: mainQr,
-          top: sTop,
-          left: sLeft,
-          blend: 'screen',
+          blend: 'over'
         }
       ])
       .png({ quality: 100, compressionLevel: 9 })
       .toBuffer();
 
-    // 5. Cloud Vault persistence
+    // 4. Cloud Vault persistence
     const shortId = String(orderId).slice(-6).toUpperCase();
-    const fileName = `PRECISION_ORDER-${shortId}_${eKey.toUpperCase()}_${Date.now()}.png`;
+    const fileName = `BULLETPROOF_ORDER-${shortId}_${eKey.toUpperCase()}_${Date.now()}.png`;
 
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -172,7 +139,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     if (uploadError) throw uploadError;
 
     const { data: { publicUrl } } = supabase.storage.from('print-assets').getPublicUrl(fileName);
-    console.log(`✅ Precision Asset Secured: ${publicUrl}`);
+    console.log(`✅ Bulletproof Asset Secured: ${publicUrl}`);
     return publicUrl;
 
   } catch (error) {
