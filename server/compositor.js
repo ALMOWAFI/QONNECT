@@ -12,13 +12,6 @@ const __dirname = path.dirname(__filename);
 /**
  * QONNECT ATELIER ENGINE (v4.0)
  * ----------------------------
- * This engine handles high-fidelity digital-to-physical garment transformation.
- * Features:
- *  - SDXL ControlNet AI Art Integration
- *  - Liquid Node Vector QR Styling (Custom SVG path rendering)
- *  - Fabric Displacement & Texture Mapping (Lanczos3 + Noise Modulation)
- *  - Circular & Rounded Precision Masking
- *  - Supabase Cloud Storage Persistence
  */
 
 const EDITION_CONFIG = {
@@ -26,10 +19,10 @@ const EDITION_CONFIG = {
     baseImage: '../src/assets/dmts.png',
     baseWidth: 2400,
     qrSize: 360,
-    left: 415,   // Shifted left slightly
-    top: 735,    // Shifted up slightly
-    qrDark:  '#000000', // Black dots for maximum scannability
-    qrLight: '#ffffffeb', // 92% white background for reliability
+    left: 415,   
+    top: 735,    
+    qrDark:  '#000000', 
+    qrLight: '#ffffffeb', 
     maskType: 'circle',
   },
   'medicine': {
@@ -67,19 +60,18 @@ const EDITION_CONFIG = {
 /**
  * Custom SVG Generator for "Liquid Node" QR Styling
  */
-function generateLiquidQrSvg(qrUrl, color, bgColor, sizePx) {
+function generateLiquidQrSvg(qrUrl, color, bgColor, sizePx, maskType) {
   const qrData = QRCode.create(qrUrl, { errorCorrectionLevel: 'H' });
   const { modules } = qrData;
   const mSize = modules.size;
   const dotUnit = 10;
-  const padding = mSize * 0.1; // 10% quiet zone
+  const padding = mSize * 0.1; 
   const canvasDim = (mSize + (padding * 2)) * dotUnit;
   
   let svgDots = '';
   for (let y = 0; y < mSize; y++) {
     for (let x = 0; x < mSize; x++) {
       if (modules.get(x, y)) {
-        // Render a circle for each module
         svgDots += `<circle cx="${(x + padding) * dotUnit + dotUnit/2}" cy="${(y + padding) * dotUnit + dotUnit/2}" r="${dotUnit/2.1}" fill="${color}"/>`;
       }
     }
@@ -87,7 +79,7 @@ function generateLiquidQrSvg(qrUrl, color, bgColor, sizePx) {
 
   return Buffer.from(
     `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${canvasDim} ${canvasDim}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100%" height="100%" rx="${config.maskType === 'circle' ? '50%' : '20'}" fill="${bgColor}"/>
+      <rect width="100%" height="100%" rx="${maskType === 'circle' ? '50%' : '20'}" fill="${bgColor}"/>
       ${svgDots}
     </svg>`
   );
@@ -132,15 +124,14 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       if (!response.ok) throw new Error('Failed to fetch AI Art');
       const arrayBuffer = await response.arrayBuffer();
       
-      // Ensure AI Art has a subtle backing for scannability
       qrBuffer = await sharp(Buffer.from(arrayBuffer))
         .resize(scaledQrSize, scaledQrSize)
-        .flatten({ background: '#ffffff' }) // Add white background to AI art for 100% scan rate
+        .flatten({ background: '#ffffff' }) 
         .png()
         .toBuffer();
     } else {
       console.log(`🖋️  Generating High-Contrast Liquid QR...`);
-      qrBuffer = generateLiquidQrSvg(qrUrl, config.qrDark, config.qrLight, scaledQrSize);
+      qrBuffer = generateLiquidQrSvg(qrUrl, config.qrDark, config.qrLight, scaledQrSize, config.maskType);
     }
 
     // 2. Precision Masking
@@ -173,7 +164,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       .png({ quality: 100 })
       .toBuffer();
 
-    // 5. Cloud Vault persistence
+    // 4. Cloud Vault persistence
     const shortId = String(orderId).slice(-6).toUpperCase();
     const fileName = `ATELIER_GARMENT_${shortId}_${eKey.toUpperCase()}_${Date.now()}.png`;
 
