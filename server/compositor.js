@@ -10,42 +10,42 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * QONNECT CINEMATIC ENGINE (v5.0)
+ * QONNECT CINEMATIC ENGINE (v5.1)
  * ------------------------------
- * Optimized for "Technical Luxury" scannability and visual flow.
+ * Precision Calibration & High-Density Glow.
  */
 
 const EDITION_CONFIG = {
   'robotics': {
     baseImage: '../src/assets/dmts.png',
     baseWidth: 2400,
-    qrSize: 420,  
-    left: 405,    
-    top: 740,     
+    qrSize: 400,
+    left: 425,   
+    top: 720,    
     accent:  '#99c6ff', 
   },
   'medicine': {
     baseImage: '../src/assets/b7e9.png',
     baseWidth: 2390,
-    qrSize: 380,
-    left: 550,    
-    top: 640,     
+    qrSize: 360,
+    left: 565,   
+    top: 645,    
     accent:  '#99fadc', 
   },
   'business': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
-    qrSize: 360,
-    left: 470,    
-    top: 580,     
+    qrSize: 340,
+    left: 495,   
+    top: 575,    
     accent:  '#D4C5B0', 
   },
   'default': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
-    qrSize: 360,
-    left: 470,
-    top: 580,
+    qrSize: 340,
+    left: 495,
+    top: 575,
     accent:  '#FFFFFF',
   }
 };
@@ -64,13 +64,14 @@ function generateTechnicalQrSvg(qrUrl, color, sizePx) {
   for (let y = 0; y < mSize; y++) {
     for (let x = 0; x < mSize; x++) {
       if (modules.get(x, y)) {
-        svgPaths += `<rect x="${x * dotUnit + 1}" y="${y * dotUnit + 1}" width="${dotUnit - 2}" height="${dotUnit - 2}" rx="2" fill="${color}"/>`;
+        svgPaths += `<rect x="${x * dotUnit + 1}" y="${y * dotUnit + 1}" width="${dotUnit - 2}" height="${dotUnit - 2}" rx="2.5" fill="${color}"/>`;
       }
     }
   }
 
   return Buffer.from(
     `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${canvasDim} ${canvasDim}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100%" height="100%" fill="black"/>
       ${svgPaths}
     </svg>`
   );
@@ -92,7 +93,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
   const hash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
   const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}?s=${hash}`;
 
-  console.log(`🏗️  Atelier Engine: Cinematic Overhaul for "${slug}" [${eKey.toUpperCase()}]`);
+  console.log(`🏗️  Atelier Engine: Precision Calibration for "${slug}" [${eKey.toUpperCase()}]`);
 
   try {
     const baseImagePath = path.join(__dirname, config.baseImage);
@@ -118,11 +119,15 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     }
 
     // 2. Create the "Cinematic Glow" layers
-    const mainQr = await sharp(qrSource).resize(sSize, sSize).png().toBuffer();
+    const mainQr = await sharp(qrSource)
+      .resize(sSize, sSize)
+      .flatten({ background: '#000000' })
+      .png()
+      .toBuffer();
     
     const glowHalo = await sharp(mainQr)
-      .blur(Math.round(sSize * 0.02)) 
-      .modulate({ brightness: 1.8 })
+      .blur(Math.round(sSize * 0.025)) 
+      .modulate({ brightness: 2.2, saturation: 1.2 })
       .png()
       .toBuffer();
 
@@ -141,7 +146,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
           top: sTop,
           left: sLeft,
           blend: 'screen',
-          opacity: 0.7
+          opacity: 0.85
         },
         {
           input: mainQr,
@@ -155,7 +160,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
 
     // 5. Cloud Vault persistence
     const shortId = String(orderId).slice(-6).toUpperCase();
-    const fileName = `CINEMATIC_ORDER-${shortId}_${eKey.toUpperCase()}_${Date.now()}.png`;
+    const fileName = `PRECISION_ORDER-${shortId}_${eKey.toUpperCase()}_${Date.now()}.png`;
 
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -167,7 +172,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     if (uploadError) throw uploadError;
 
     const { data: { publicUrl } } = supabase.storage.from('print-assets').getPublicUrl(fileName);
-    console.log(`✅ Cinematic Asset Secured: ${publicUrl}`);
+    console.log(`✅ Precision Asset Secured: ${publicUrl}`);
     return publicUrl;
 
   } catch (error) {
