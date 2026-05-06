@@ -22,51 +22,49 @@ const EDITION_CONFIG = {
   'robotics': {
     baseImage: '../src/assets/dmts.png',
     baseWidth: 2400,
-    qrSize: 320,  // Tighter size for better centering
-    left: 440,    // (600 - 160)
-    top: 800,     // Precision Lower Anchor
-    accent: '#99c6ff', 
+    qrSize: 320,
+    left: 440,
+    top: 760,     // Shifted up from 800
+    accent: '#0066ff', // Deeper blue for better contrast on white
   },
   'medicine': {
     baseImage: '../src/assets/b7e9.png',
     baseWidth: 2390,
     qrSize: 280,
-    left: 460,    // (600 - 140)
-    top: 690,     // Precision Lower Anchor
-    accent: '#99fadc', 
+    left: 460,
+    top: 650,     // Shifted up from 690
+    accent: '#00cc88', // Deeper green
   },
   'business': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
     qrSize: 260,
-    left: 470,    // (600 - 130)
-    top: 630,     // Precision Lower Anchor
-    accent: '#D4C5B0', 
+    left: 470,
+    top: 590,     // Shifted up from 630
+    accent: '#a68b5a', // Deeper gold
   },
   'default': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
     qrSize: 260,
     left: 470,
-    top: 630,
-    accent: '#FFFFFF',
+    top: 590,
+    accent: '#000000',
   }
 };
 
 /**
- * Inverted Technical QR Generator
- * Dots are TRANSPARENT (revealing hoodie)
- * Background is SOLID ACCENT COLOR (The "Coin")
+ * Technical Lens QR Generator (v7.1)
+ * High-Contrast Accent Dots on White Background
  */
-async function generateInvertedCoinQr(qrUrl, color, sizePx) {
-  // Use higher scale for crisp subtraction
+async function generateTechnicalLensQr(qrUrl, color, sizePx) {
   const qrBuffer = await QRCode.toBuffer(qrUrl, {
     width: sizePx * 2,
-    margin: 4,
+    margin: 6, // Increased quiet zone
     errorCorrectionLevel: 'H',
     color: {
-      dark: '#000000', // Black dots
-      light: color   // Accent background
+      dark: color,    // Accent color dots
+      light: '#ffffff' // Pure white background
     }
   });
 
@@ -89,7 +87,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
   const hash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
   const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}?s=${hash}`;
 
-  console.log(`🏗️  Atelier Engine v7.0: Generating Luxury Coin for "${slug}"`);
+  console.log(`🏗️  Atelier Engine v7.1: Precision Build for "${slug}"`);
 
   try {
     const baseImagePath = path.join(__dirname, config.baseImage);
@@ -101,17 +99,25 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     const sLeft = Math.round(config.left * scaleFactor);
     const sTop  = Math.round(config.top * scaleFactor);
 
-    // 1. Generate High-Contrast Coin QR
-    const qrBuffer = await generateInvertedCoinQr(qrUrl, config.accent, sSize);
+    // 1. Generate High-Contrast Lens QR
+    let qrBuffer;
+    const aiArtUrl = await getArtQrUrl(slug);
 
-    // 2. Feathered Circular Mask (Luxury Blending)
-    const feather = Math.round(sSize * 0.1);
+    if (aiArtUrl && aiArtUrl !== 'FAILED') {
+      const response = await fetch(aiArtUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      qrBuffer = await sharp(Buffer.from(arrayBuffer))
+        .resize(sSize, sSize)
+        .flatten({ background: '#ffffff' })
+        .toBuffer();
+    } else {
+      qrBuffer = await generateTechnicalLensQr(qrUrl, config.accent, sSize);
+    }
+
+    // 2. Circular Mask with Minimal Feather (Razor Sharp Finders)
     const mask = Buffer.from(
       `<svg width="${sSize}" height="${sSize}">
-        <filter id="f1">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="${feather / 4}" />
-        </filter>
-        <circle cx="${sSize/2}" cy="${sSize/2}" r="${(sSize/2) - (feather/2)}" fill="white" filter="url(#f1)"/>
+        <circle cx="${sSize/2}" cy="${sSize/2}" r="${sSize/2}" fill="white"/>
       </svg>`
     );
 
