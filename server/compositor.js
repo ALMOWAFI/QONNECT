@@ -21,43 +21,42 @@ const EDITION_CONFIG = {
     baseImage: '../src/assets/dmts.png',
     baseWidth: 2400,
     qrSize: 340,
-    left: 430,   
-    top: 680,     // Shifted up to center between palms
+    left: 370,    // Shifted Left (Visual center is ~540)
+    top: 720,     // Precision vertical calibration
     accent: '#0066ff', 
     maskType: 'squircle',
   },
   'medicine': {
     baseImage: '../src/assets/b7e9.png',
     baseWidth: 2390,
-    qrSize: 300,
-    left: 450,
-    top: 560,     // Shifted up
+    qrSize: 320,
+    left: 390,    // Shifted Left
+    top: 600,     
     accent: '#00cc88', 
     maskType: 'squircle',
   },
   'business': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
-    qrSize: 280,
-    left: 460,
-    top: 500,     // Shifted up
+    qrSize: 300,
+    left: 400,    // Shifted Left
+    top: 540,     
     accent: '#a68b5a', 
     maskType: 'squircle',
   },
   'default': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
-    qrSize: 280,
-    left: 460,
-    top: 500,
+    qrSize: 300,
+    left: 400,
+    top: 540,
     accent: '#000000',
     maskType: 'squircle',
   }
 };
 
 /**
- * Precision Squircle Lens Generator
- * High-Contrast Black Dots on a Wide Radial Gradient
+ * Precision Squircle Lens Generator (v9.1)
  */
 async function generateSquircleLensQr(qrUrl, accentColor, sizePx) {
   const qrBuffer = await QRCode.toBuffer(qrUrl, {
@@ -70,19 +69,20 @@ async function generateSquircleLensQr(qrUrl, accentColor, sizePx) {
     }
   });
 
+  const radius = sizePx * 0.1; // 10% radius for a sharper squared look
   const background = Buffer.from(
     `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <radialGradient id="lensGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
           <stop offset="0%" style="stop-color:${accentColor};stop-opacity:0.3" />
-          <stop offset="85%" style="stop-color:#ffffff;stop-opacity:1" />
+          <stop offset="80%" style="stop-color:#ffffff;stop-opacity:1" />
         </radialGradient>
       </defs>
-      <rect x="0" y="0" width="${sizePx}" height="${sizePx}" rx="${sizePx * 0.2}" ry="${sizePx * 0.2}" fill="url(#lensGlow)"/>
+      <rect x="0" y="0" width="${sizePx}" height="${sizePx}" rx="${radius}" ry="${radius}" fill="url(#lensGlow)"/>
     </svg>`
   );
 
-  const dotsProcessed = await sharp(qrBuffer).resize(Math.round(sizePx * 0.85), Math.round(sizePx * 0.85)).png().toBuffer();
+  const dotsProcessed = await sharp(qrBuffer).resize(Math.round(sizePx * 0.88), Math.round(sizePx * 0.88)).png().toBuffer();
 
   return sharp(background)
     .composite([{ input: dotsProcessed, blend: 'over' }])
@@ -106,7 +106,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
   const hash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
   const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}?s=${hash}`;
 
-  console.log(`🏗️  Atelier Engine v9.0: Precision Squircle for "${slug}"`);
+  console.log(`🏗️  Atelier Engine v9.1: Optical Calibration for "${slug}"`);
 
   try {
     const baseImagePath = path.join(__dirname, config.baseImage);
@@ -125,11 +125,12 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     if (aiArtUrl && aiArtUrl !== 'FAILED') {
       const response = await fetch(aiArtUrl);
       const arrayBuffer = await response.arrayBuffer();
+      const radius = sSize * 0.1;
       finalQr = await sharp(Buffer.from(arrayBuffer))
         .resize(sSize, sSize)
         .flatten({ background: '#ffffff' })
         .composite([{ 
-          input: Buffer.from(`<svg width="${sSize}" height="${sSize}"><rect x="0" y="0" width="${sSize}" height="${sSize}" rx="${sSize * 0.2}" ry="${sSize * 0.2}" fill="white"/></svg>`), 
+          input: Buffer.from(`<svg width="${sSize}" height="${sSize}"><rect x="0" y="0" width="${sSize}" height="${sSize}" rx="${radius}" ry="${radius}" fill="white"/></svg>`), 
           blend: 'dest-in' 
         }])
         .toBuffer();
