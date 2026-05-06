@@ -5,14 +5,18 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { getArtQrUrl } from './orderStore.js';
+import { detectOpticalCenter } from './vision.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * QONNECT BULLETPROOF ENGINE (v6.0)
- * --------------------------------
- * Maximum Scannability & Precision Centering.
+ * QONNECT ATELIER ENGINE (v6.1)
+ * ----------------------------
+ * Features:
+ *  - Intelligent Vision Centering via Gemini 1.5
+ *  - Bulletproof v6.0 Scannability
+ *  - Supabase Cloud Persistence
  */
 
 const EDITION_CONFIG = {
@@ -20,22 +24,22 @@ const EDITION_CONFIG = {
     baseImage: '../src/assets/dmts.png',
     baseWidth: 2400,
     qrSize: 420, 
-    left: 390,   // (600 - 420/2 = 390) -> Perfectly centered in 1200px left frame
-    top: 660,    
+    left: 390,   // Manual fallback
+    top: 660,    // Manual fallback
   },
   'medicine': {
     baseImage: '../src/assets/b7e9.png',
     baseWidth: 2390,
     qrSize: 380,
-    left: 410,   // (600 - 190)
-    top: 640,    
+    left: 410,
+    top: 640,
   },
   'business': {
     baseImage: '../src/assets/8d7s.png',
     baseWidth: 2390,
     qrSize: 360,
-    left: 420,   // (600 - 180)
-    top: 580,    
+    left: 420,
+    top: 580,
   },
   'default': {
     baseImage: '../src/assets/8d7s.png',
@@ -62,20 +66,35 @@ export async function generateCompositeAsset(orderId, edition, slug) {
   const hash = crypto.createHmac('sha256', secret).update(slug).digest('hex').substring(0, 8);
   const qrUrl = `${process.env.PUBLIC_URL || 'https://qonnect.work'}/b/${slug}?s=${hash}`;
 
-  console.log(`🏗️  Atelier Engine: Bulletproof v6.0 for "${slug}" [${eKey.toUpperCase()}]`);
+  console.log(`🏗️  Atelier Engine: Intelligent Vision Build for "${slug}" [${eKey.toUpperCase()}]`);
 
   try {
     const baseImagePath = path.join(__dirname, config.baseImage);
     if (!fs.existsSync(baseImagePath)) throw new Error(`Base image not found`);
 
-    const metadata = await sharp(baseImagePath).metadata();
+    const baseImageBuffer = fs.readFileSync(baseImagePath);
+    const metadata = await sharp(baseImageBuffer).metadata();
     const scaleFactor = metadata.width / config.baseWidth;
     
+    // 1. DYNAMIC VISION: Ask Gemini where the optical center is
+    const visionCoords = await detectOpticalCenter(baseImageBuffer, eKey);
+    
+    let sLeft, sTop;
     const sSize = Math.round(config.qrSize * scaleFactor);
-    const sLeft = Math.round(config.left * scaleFactor);
-    const sTop  = Math.round(config.top * scaleFactor);
 
-    // 1. Generate/Fetch the QR source (High-Contrast Black on White for 100% scan rate)
+    if (visionCoords) {
+      // Use Gemini's optical percentages to find the center
+      sLeft = Math.round((visionCoords.x_percent / 100) * metadata.width) - (sSize / 2);
+      sTop  = Math.round((visionCoords.y_percent / 100) * metadata.height) - (sSize / 2);
+      console.log(`✨ Vision-AI Centering applied: x=${sLeft}, y=${sTop}`);
+    } else {
+      // Fallback to manual math
+      sLeft = Math.round(config.left * scaleFactor);
+      sTop  = Math.round(config.top * scaleFactor);
+      console.log(`⚠️  Vision failed. Fallback centering applied: x=${sLeft}, y=${sTop}`);
+    }
+
+    // 2. Generate/Fetch the QR source
     let qrBuffer;
     const aiArtUrl = await getArtQrUrl(slug);
 
@@ -86,11 +105,10 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       
       qrBuffer = await sharp(Buffer.from(arrayBuffer))
         .resize(sSize, sSize)
-        .flatten({ background: '#ffffff' }) // Ensure white backing for AI art
+        .flatten({ background: '#ffffff' })
         .png()
         .toBuffer();
     } else {
-      // Bulletproof standard QR with 4-module quiet zone
       qrBuffer = await QRCode.toBuffer(qrUrl, {
         width: sSize,
         margin: 4,
@@ -99,7 +117,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       });
     }
 
-    // 2. High-Precision Masking (Circular for a "Lens" look)
+    // 3. High-Precision Masking
     const mask = Buffer.from(
       `<svg width="${sSize}" height="${sSize}">
         <circle cx="${sSize/2}" cy="${sSize/2}" r="${sSize/2}" fill="white"/>
@@ -112,8 +130,8 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       .png()
       .toBuffer();
 
-    // 3. Final Placement with standard 'over' blending for maximum contrast
-    const finalBuffer = await sharp(baseImagePath)
+    // 4. Final Atelier Merging
+    const finalBuffer = await sharp(baseImageBuffer)
       .composite([
         {
           input: processedQr,
@@ -125,9 +143,9 @@ export async function generateCompositeAsset(orderId, edition, slug) {
       .png({ quality: 100, compressionLevel: 9 })
       .toBuffer();
 
-    // 4. Cloud Vault persistence
+    // 5. Cloud Vault persistence
     const shortId = String(orderId).slice(-6).toUpperCase();
-    const fileName = `BULLETPROOF_ORDER-${shortId}_${eKey.toUpperCase()}_${Date.now()}.png`;
+    const fileName = `VISION_ORDER-${shortId}_${eKey.toUpperCase()}_${Date.now()}.png`;
 
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -139,7 +157,7 @@ export async function generateCompositeAsset(orderId, edition, slug) {
     if (uploadError) throw uploadError;
 
     const { data: { publicUrl } } = supabase.storage.from('print-assets').getPublicUrl(fileName);
-    console.log(`✅ Bulletproof Asset Secured: ${publicUrl}`);
+    console.log(`✅ Vision Asset Secured: ${publicUrl}`);
     return publicUrl;
 
   } catch (error) {
