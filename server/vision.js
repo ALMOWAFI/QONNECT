@@ -15,43 +15,46 @@ export async function detectOpticalCenter(imageBuffer, editionName) {
   }
 
   try {
+    // Using gemini-1.5-flash for speed and vision capabilities
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `
-      You are a high-end technical design assistant for an atelier. 
-      I am uploading an image of a hoodie design (back view on the left, front view on the right).
+      Look at this hoodie design. It shows a back view on the left and a front view on the right.
       
-      Look at the BACK VIEW (the left half of the image). 
-      Identify the exact visual center of the circular artistic portal or "glow" located between the two hands.
+      Your task: Find the exact horizontal and vertical center of the 'glowing circle' or 'portal' 
+      located between the hands on the BACK VIEW (the left half of the image).
       
-      Return ONLY a JSON object with the coordinates normalized from 0 to 1000 for the WHOLE image.
-      Format: {"x_percent": 0-100, "y_percent": 0-100}
-      
-      Example: If the center is in the middle of the left frame, x_percent might be 25.
+      Return ONLY a JSON object with the percentages relative to the TOTAL image width and height.
+      Format: {"x_percent": number, "y_percent": number}
     `;
 
-    const result = await model.generateContent([
-      prompt,
+    const parts = [
+      { text: prompt },
       {
         inlineData: {
-          data: imageBuffer.toString("base64"),
           mimeType: "image/png",
-        },
-      },
-    ]);
+          data: imageBuffer.toString("base64")
+        }
+      }
+    ];
 
+    const result = await model.generateContent(parts);
     const response = await result.response;
     const text = response.text();
     
-    // Extract JSON from response
     const jsonMatch = text.match(/\{.*\}/);
     if (jsonMatch) {
       const coords = JSON.parse(jsonMatch[0]);
+      // Safety check: ensure x is in the left half (back view)
+      if (coords.x_percent > 50) {
+          console.warn("⚠️  Gemini detected center in right half. Adjusting to left half.");
+          coords.x_percent = coords.x_percent - 50; 
+      }
       console.log(`🧠 Gemini Vision detected optical center for ${editionName}:`, coords);
       return coords;
     }
     
-    throw new Error("Could not parse coordinates from Gemini response.");
+    return null;
   } catch (error) {
     console.error("❌ Gemini Vision Detection Failed:", error.message);
     return null;
