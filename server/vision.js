@@ -1,62 +1,63 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from 'dotenv';
 dotenv.config();
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /**
  * Uses Gemini 1.5 Flash Vision to identify the precise optical center of the
  * artistic portal in the hoodie asset.
+ * 
+ * Directly uses fetch to avoid SDK path issues.
  */
 export async function detectOpticalCenter(imageBuffer, editionName) {
-  if (!process.env.GEMINI_API_KEY) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
     console.warn("⚠️  GEMINI_API_KEY not set. Falling back to manual coordinates.");
     return null;
   }
 
   try {
-    // Using gemini-1.5-flash for speed and vision capabilities
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    const payload = {
+      contents: [{
+        parts: [
+          { text: "Identify the exact visual center of the circular artistic portal located between the hands on the BACK VIEW (left half) of this image. Return ONLY a JSON object: {\"x_percent\": number, \"y_percent\": number} where percentages are relative to the whole image width and height." },
+          {
+            inline_data: {
+              mime_type: "image/png",
+              data: imageBuffer.toString("base64")
+            }
+          }
+        ]
+      }]
+    };
 
-    const prompt = `
-      Look at this hoodie design. It shows a back view on the left and a front view on the right.
-      
-      Your task: Find the exact horizontal and vertical center of the 'glowing circle' or 'portal' 
-      located between the hands on the BACK VIEW (the left half of the image).
-      
-      Return ONLY a JSON object with the percentages relative to the TOTAL image width and height.
-      Format: {"x_percent": number, "y_percent": number}
-    `;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
-    const parts = [
-      { text: prompt },
-      {
-        inlineData: {
-          mimeType: "image/png",
-          data: imageBuffer.toString("base64")
-        }
-      }
-    ];
+    if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error?.message || "Gemini API request failed");
+    }
 
-    const result = await model.generateContent(parts);
-    const response = await result.response;
-    const text = response.text();
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     
     const jsonMatch = text.match(/\{.*\}/);
     if (jsonMatch) {
       const coords = JSON.parse(jsonMatch[0]);
-      // Safety check: ensure x is in the left half (back view)
-      if (coords.x_percent > 50) {
-          console.warn("⚠️  Gemini detected center in right half. Adjusting to left half.");
-          coords.x_percent = coords.x_percent - 50; 
-      }
-      console.log(`🧠 Gemini Vision detected optical center for ${editionName}:`, coords);
+      // Precision normalization check
+      if (coords.x_percent > 50) coords.x_percent = coords.x_percent / 2; // AI might think relative to the frame
+      
+      console.log(`🧠 Vision-AI detected center for ${editionName}:`, coords);
       return coords;
     }
     
     return null;
   } catch (error) {
-    console.error("❌ Gemini Vision Detection Failed:", error.message);
+    console.error("❌ Gemini Vision API Failed:", error.message);
     return null;
   }
 }
